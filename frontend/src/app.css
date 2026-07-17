@@ -1,0 +1,282 @@
+:root {
+  --primary: #166534;
+  --primary-hover: #14532d;
+  --danger: #dc2626;
+
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text-muted: #6b7280;
+
+  --radius: 10px;
+  --radius-s: 6px;
+
+  --space-xs: 4px;
+  --space-s: 8px;
+  --space-m: 16px;
+  --space-l: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+
+  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+
+  font: 16px/145% var(--sans);
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-gutter: stable;
+}
+
+/* OS setting is the default signal (no explicit choice in Settings yet, [data-theme]
+   unset). Once the user flips the switch, App.svelte sets [data-theme] on <html> and
+   the two overrides below take over -- higher specificity than the plain :root above
+   wins regardless of source order. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --border: #262b36;
+    --text: #f3f4f6;
+    --text-muted: #9ca3af;
+    /* Helleres Gruen im Dark Mode -- die Light-Mode-Variante haette als
+       Vordergrundfarbe (z.B. Sterne-Bewertung) auf dunklem Hintergrund
+       nicht genug Kontrast (2.65:1 statt mind. 3:1). */
+    --primary: #15803d;
+    --primary-hover: #16a34a;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --surface: #171a21;
+  --border: #262b36;
+  --text: #f3f4f6;
+  --text-muted: #9ca3af;
+  --primary: #15803d;
+  --primary-hover: #16a34a;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --primary: #166534;
+  --primary-hover: #14532d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0.01ms;
+    --transition-base: 0.01ms;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+}
+
+h1, h2, h3 {
+  font-weight: 500;
+  margin: 0 0 var(--space-s);
+}
+
+p {
+  margin: 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-m);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gap-xs { gap: var(--space-xs); }
+.gap-s { gap: var(--space-s); }
+.gap-m { gap: var(--space-m); }
+.gap-l { gap: var(--space-l); }
+
+.center {
+  justify-content: center;
+  align-items: center;
+}
+
+.space-between {
+  justify-content: space-between;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1;
+}
+
+.align-start {
+  align-self: flex-start;
+}
+
+.m-0 {
+  margin: 0;
+}
+
+.text-sm {
+  font-size: 0.85rem;
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.page {
+  padding-block: var(--space-xl);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-l);
+}
+
+.detail-head {
+  align-items: flex-start;
+}
+
+.detail-info {
+  min-width: 260px;
+}
+
+.card-subtitle {
+  font-size: 1.05rem;
+}
+
+.poster {
+  width: 220px;
+  aspect-ratio: 2 / 3;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-m);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  padding: var(--space-s) var(--space-m);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast) ease, border-color var(--transition-fast) ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: var(--surface);
+}
+
+.btn-sm {
+  min-height: auto;
+  padding: var(--space-xs) var(--space-s);
+  font-size: 0.85rem;
+}
+
+.input {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: var(--space-s) var(--space-m);
+  font-size: 0.95rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px var(--space-s);
+  font-size: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.poster-badge {
+  position: absolute;
+  top: var(--space-s);
+  right: var(--space-m);
+  color: #fff;
+  border: none;
+}
+
+.hidden {
+  display: none;
+}

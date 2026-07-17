@@ -1,0 +1,118 @@
+/**
+ * Template for a new language. Here's how to add one:
+ *
+ * 1. Copy this file and name it after the ISO 639-1 language code (e.g. "fr.ts" for
+ *    French, "es.ts" for Spanish) -- the filename without ".ts" automatically becomes
+ *    the language code that users can select in settings.
+ * 2. Translate every value (the text to the right of the ":"). Do NOT change the keys (left side).
+ * 3. Carry placeholders in curly braces (e.g. "{time}", "{n}") unchanged into the
+ *    translation -- they get replaced with real values at runtime.
+ * 4. Incomplete is fine: missing keys automatically fall back to English
+ *    (see translate() in ../translations.ts). Even a file with only 5 translated
+ *    lines is already useful, the rest just stays English.
+ * 5. This file itself (_template.ts) is ignored -- the filename doesn't match the
+ *    language-code pattern, so it never shows up as a selectable language.
+ *
+ * Complete, guaranteed reference with all keys: see en.ts.
+ */
+export default {
+  "nav.continueWatching": "Continue Watching",
+  "nav.library": "Library",
+  "nav.settings": "Settings",
+
+  "common.pageLoading": "The tractor is rolling in…",
+  "common.loadError": "Failed to load.",
+  "common.actionPending": "The tractor is rolling…",
+  "common.markingWatched": "Bringing it in…",
+
+  "errors.wrongPassword": "Wrong password.",
+  "errors.rateLimited": "Too many attempts — please wait a moment before trying again.",
+  "errors.notAuthenticated": "Not logged in.",
+  "errors.missingFields": "Required fields are missing.",
+  "errors.invalidItemType": "Invalid request.",
+  "errors.showNotFound": "Show not found.",
+  "errors.movieNotFound": "Movie not found.",
+  "errors.unsupportedLanguage": "Unsupported language.",
+  "errors.invalidOauthState": "Invalid OAuth state — please try connecting again.",
+  "errors.generic": "Something went wrong. Please try again.",
+
+  "continueWatching.sortNew": "Newest first",
+  "continueWatching.sortWaiting": "Longest waiting",
+  "continueWatching.empty": "The field is cleared — no new episodes waiting for you.",
+  "continueWatching.emptyAlt": "All caught up. Time to let the tractor rest in the shed.",
+  "continueWatching.backgroundSync": "Refreshing in the background…",
+  "continueWatching.lastWatched": "Last: {time}",
+  "continueWatching.markWatched": "Mark as watched",
+  "continueWatching.markWatchedSuccess": "Marked as watched.",
+
+  "library.shows": "Shows",
+  "library.movies": "Movies",
+  "library.empty": "The field is cleared — no matches for this filter combination.",
+  "library.sort.title": "Title",
+  "library.sort.year": "Year",
+  "library.sort.rating": "Rating",
+  "library.sort.added": "Last watched",
+
+  "filter.searchPlaceholder": "Search titles…",
+  "filter.defaultDirection": "Default order",
+  "filter.ascending": "Ascending",
+  "filter.descending": "Descending",
+  "filter.all": "All",
+  "filter.ongoing": "Ongoing",
+  "filter.ended": "Ended",
+  "filter.yearFrom": "Year from",
+  "filter.yearTo": "to",
+  "filter.ratingFrom": "Rating from",
+  "filter.list": "List",
+  "filter.reset": "Reset filters",
+
+  "detail.minutes": "{n} min",
+  "detail.progressTitle": "Progress",
+  "detail.episodesWatched": "{completed} / {aired} episodes watched",
+  "detail.lastWatched": "Last watched: {time}",
+  "detail.nextEpisode": "Next episode: {code}",
+  "detail.episodesHeading": "Episodes",
+  "detail.posterAlt": "Poster for {title}",
+
+  "episodes.loadError": "Couldn't load episodes.",
+  "episodes.season": "Season {n}",
+  "episodes.markSeasonWatched": "Mark season as watched",
+  "episodes.episodeFallback": "Episode {n}",
+
+  "rating.rate": "Rate {n}",
+
+  "login.tagline": "Your tractor is waiting in the barn — just the password, then off to the field.",
+  "login.passwordPlaceholder": "Password",
+  "login.loginFailed": "Login failed.",
+  "login.starting": "The tractor is starting…",
+  "login.submit": "Log in",
+  "login.footerGithub": "Source on GitHub",
+
+  "settings.justConnected": "Trakt is now connected. The tractor can start rolling.",
+  "settings.traktConnection": "Trakt Connection",
+  "settings.traktConnectionHint": "Connects the tractor to your Trakt.tv account so shows, movies and ratings can be synced.",
+  "settings.connected": "connected",
+  "settings.notConnected": "Not connected yet.",
+  "settings.connectButton": "Connect to Trakt",
+  "settings.language": "Language",
+  "settings.languageHint": "Titles, descriptions and episode names are shown in the selected language where available (otherwise the original English text). Switching fetches missing translations once.",
+  "settings.languageSaving": "The tractor is rolling… (fetching translations)",
+  "settings.languageError": "Couldn't save language.",
+  "settings.appearance": "Appearance",
+  "settings.appearanceHint": "Light or dark — your choice is saved and synced across devices.",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.themeError": "Couldn't save appearance.",
+  "settings.sync": "Sync",
+  "settings.syncHint": "Manually pulls shows, movies, ratings and lists from Trakt — the nightly cron usually handles this automatically.",
+  "settings.syncNow": "Sync now",
+  "settings.syncResult": "{shows} shows, {movies} movies, {ratings} ratings, {lists} lists synced.",
+  "settings.syncSkippedWarning": "{n} show(s) skipped (metadata fetch failed) — try syncing again later.",
+  "settings.syncError": "Sync failed.",
+  "settings.session": "Session",
+  "settings.sessionHint": "Logs you out of the tractor and ends the current session on this device.",
+  "settings.logout": "Log out",
+
+  "time.neverWatched": "never watched",
+  "time.justNow": "just now",
+};

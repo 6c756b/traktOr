@@ -1,0 +1,11 @@
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
+
+# cron.php is only meant to be invoked via CLI by the host's cron -- it exists as a real
+# file and would bypass the rewrite rule above (which only applies to NON-existing paths),
+# so it would otherwise be publicly reachable via URL and could trigger syncs from outside.
+<Files "cron.php">
+  Require all denied
+</Files>
