@@ -1,0 +1,11 @@
+-- Structural episode-list cache (season/episode numbers + premiere year), decoupled from the
+-- live per-episode watched-progress fetch (see SyncService::getSeasonShape()/getProgress()).
+-- Deliberately does NOT store titles -- those stay in the existing per-language
+-- episode_translations cache; this only defines "which episodes exist" + year, both of which
+-- are language-independent and only change when Trakt adds new seasons/episodes.
+-- Structure: {"airedEpisodes": 24, "seasons": [{"number":1,"year":2020,"episodeNumbers":[1,2,...]}]}
+-- Never contains season 0 (specials) -- matches the old behavior where the episode list was
+-- sourced from /progress/watched, which excludes specials by default.
+-- "airedEpisodes" is a snapshot of Trakt's live progress "aired" count at build time, used as
+-- a cheap staleness check in SyncService::getProgress() to detect newly aired episodes.
+ALTER TABLE shows ADD COLUMN season_structure JSON NULL AFTER episode_translations;

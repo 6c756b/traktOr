@@ -13,6 +13,7 @@ const ERROR_CODE_KEYS: Record<string, string> = {
   movie_not_found: "errors.movieNotFound",
   unsupported_language: "errors.unsupportedLanguage",
   invalid_oauth_state: "errors.invalidOauthState",
+  not_found: "errors.notFound",
   server_error: "errors.generic",
 };
 

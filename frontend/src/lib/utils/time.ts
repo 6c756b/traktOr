@@ -1,7 +1,13 @@
 import { translate } from "../i18n/translations";
 
 function parseServerDate(mysqlDatetime: string): Date {
-  return new Date(mysqlDatetime.replace(" ", "T"));
+  // Server timestamps are always UTC (see backend/bootstrap.php + Database.php), but MySQL's
+  // "Y-m-d H:i:s" format has no timezone marker -- per the ECMAScript Date Time String Format,
+  // a date-time string with no offset is parsed as *local* time, not UTC. Appending "Z" makes
+  // JS parse it as UTC, matching how it was actually written. Date-only strings (no space,
+  // e.g. movies.released) are already parsed as UTC midnight per spec, so they're left as-is.
+  const iso = mysqlDatetime.includes(" ") ? `${mysqlDatetime.replace(" ", "T")}Z` : mysqlDatetime;
+  return new Date(iso);
 }
 
 export function formatRelativeTime(mysqlDatetime: string | null, language: string): string {
@@ -38,9 +44,14 @@ export function formatAirDate(mysqlDatetime: string | null, language: string): s
   if (!mysqlDatetime) {
     return "";
   }
+  // Date-only values (no time component, e.g. movies.released) are calendar dates, not
+  // instants -- force UTC rendering so the displayed day doesn't shift depending on the
+  // viewer's own timezone offset.
+  const isDateOnly = !mysqlDatetime.includes(" ");
   return parseServerDate(mysqlDatetime).toLocaleDateString(language, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    ...(isDateOnly ? { timeZone: "UTC" } : {}),
   });
 }

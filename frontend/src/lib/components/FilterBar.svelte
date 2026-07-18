@@ -40,9 +40,28 @@
   function resetFilters() {
     filters = { sort: filters.sort, dir: filters.dir };
   }
+
+  let expanded = $state(window.innerWidth > 640);
 </script>
 
 <div class="card stack gap-m">
+  <button
+    type="button"
+    class="filter-toggle"
+    onclick={() => (expanded = !expanded)}
+    aria-expanded={expanded}
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <line x1="16.5" y1="16.5" x2="21" y2="21" />
+    </svg>
+    <span class="grow">{$t("filter.toggleLabel")}</span>
+    <svg class="chevron {expanded ? 'chevron-open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  </button>
+
+  {#if expanded}
   <div class="row gap-s wrap">
     <input
       class="input grow search-input"
@@ -136,9 +155,41 @@
 
     <button class="btn btn-secondary" onclick={resetFilters}>{$t("filter.reset")}</button>
   </div>
+  {/if}
 </div>
 
 <style>
+  .filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    width: 100%;
+    min-height: 44px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    font: inherit;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .filter-toggle svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .chevron {
+    transition: transform var(--transition-fast) ease;
+  }
+
+  .chevron-open {
+    transform: rotate(180deg);
+  }
+
   .search-input {
     min-width: 180px;
   }

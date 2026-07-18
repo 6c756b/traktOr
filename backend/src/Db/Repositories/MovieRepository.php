@@ -11,6 +11,7 @@ final class MovieRepository
         'title' => ['column' => 'm.title', 'defaultDir' => 'ASC'],
         'year' => ['column' => 'm.year', 'defaultDir' => 'DESC'],
         'rating' => ['column' => 'r.rating', 'defaultDir' => 'DESC'],
+        'listed' => ['column' => 'wi.listed_at', 'defaultDir' => 'DESC'],
     ];
 
     private const SELECT = "SELECT
@@ -25,10 +26,10 @@ final class MovieRepository
         $stmt = Database::pdo()->prepare(
             'INSERT INTO movies (
                 trakt_id, slug, title, year, overview, status, genres,
-                poster_url, backdrop_url, runtime, released, certification, raw_json
+                poster_url, backdrop_url, runtime, released, certification, raw_json, watched_at
             ) VALUES (
                 :trakt_id, :slug, :title, :year, :overview, :status, :genres,
-                :poster_url, :backdrop_url, :runtime, :released, :certification, :raw_json
+                :poster_url, :backdrop_url, :runtime, :released, :certification, :raw_json, :watched_at
             )
             ON DUPLICATE KEY UPDATE
                 slug = VALUES(slug), title = VALUES(title), year = VALUES(year),
@@ -36,7 +37,8 @@ final class MovieRepository
                 poster_url = COALESCE(VALUES(poster_url), poster_url),
                 backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
                 runtime = VALUES(runtime), released = VALUES(released),
-                certification = VALUES(certification), raw_json = VALUES(raw_json)'
+                certification = VALUES(certification), raw_json = VALUES(raw_json),
+                watched_at = COALESCE(VALUES(watched_at), watched_at)'
         );
         $stmt->execute($row);
     }
@@ -70,6 +72,7 @@ final class MovieRepository
     public function search(array $filters, string $sort = 'title', string $dir = '', string $language = 'en'): array
     {
         [$where, $params] = FilterQueryBuilder::build($filters, 'm');
+        $watchlistOnly = !empty($filters['watchlist_only']);
         $joins = '';
 
         if (isset($filters['rating_min'])) {
@@ -83,7 +86,16 @@ final class MovieRepository
             $params['list_id'] = $filters['list_id'];
         }
 
-        $sortDef = self::SORT_COLUMNS[$sort] ?? self::SORT_COLUMNS['title'];
+        if ($watchlistOnly) {
+            $joins .= " JOIN watchlist_items wi ON wi.item_type = 'movie' AND wi.item_trakt_id = m.trakt_id";
+        } else {
+            $where[] = 'm.watched_at IS NOT NULL';
+        }
+
+        // 'listed' only resolves to a real column when watchlist_items is actually joined --
+        // otherwise fall back to the default sort, same as any other unrecognized sort key.
+        $sortKey = $sort === 'listed' && !$watchlistOnly ? 'title' : $sort;
+        $sortDef = self::SORT_COLUMNS[$sortKey] ?? self::SORT_COLUMNS['title'];
         $direction = strtoupper($dir) === 'ASC' || strtoupper($dir) === 'DESC' ? strtoupper($dir) : $sortDef['defaultDir'];
 
         $sql = self::SELECT . $joins
@@ -104,9 +116,12 @@ final class MovieRepository
     }
 
     /** @return string[] */
-    public function distinctGenres(): array
+    public function distinctGenres(bool $watchlistOnly = false): array
     {
-        $raw = Database::pdo()->query('SELECT genres FROM movies')->fetchAll(\PDO::FETCH_COLUMN);
+        $sql = $watchlistOnly
+            ? "SELECT m.genres FROM movies m JOIN watchlist_items wi ON wi.item_type = 'movie' AND wi.item_trakt_id = m.trakt_id"
+            : 'SELECT genres FROM movies WHERE watched_at IS NOT NULL';
+        $raw = Database::pdo()->query($sql)->fetchAll(\PDO::FETCH_COLUMN);
         return FilterQueryBuilder::distinctGenres($raw);
     }
 

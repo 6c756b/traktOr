@@ -57,17 +57,21 @@
   }
 
   async function handleMarkWatched(item: ContinueWatchingItem) {
-    const { item: updated } = await markEpisodeWatched(item.id, item.nextEpisode.season, item.nextEpisode.number);
-    if (!items) return;
-    items = updated
-      ? items.map((i) => (i.id === item.id ? updated : i))
-      : items.filter((i) => i.id !== item.id);
-    toasts.push($t("continueWatching.markWatchedSuccess"), "success");
+    try {
+      const { item: updated } = await markEpisodeWatched(item.id, item.nextEpisode.season, item.nextEpisode.number);
+      if (!items) return;
+      items = updated
+        ? items.map((i) => (i.id === item.id ? updated : i))
+        : items.filter((i) => i.id !== item.id);
+      toasts.push($t("continueWatching.markWatchedSuccess"), "success");
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
+    }
   }
 </script>
 
 <div class="container stack gap-l page">
-  <div class="row space-between">
+  <div class="row space-between wrap gap-s">
     <div class="row gap-s">
       <h1 class="m-0">{$t("nav.continueWatching")}</h1>
     </div>

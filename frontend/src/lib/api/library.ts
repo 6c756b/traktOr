@@ -15,10 +15,13 @@ export type ShowListItem = {
   airedEpisodes: number | null;
   certification: string | null;
   rating: number | null;
+  tmdbId: number | null;
+  onWatchlist: boolean;
   progress: {
     aired: number;
     completed: number;
     lastWatchedAt: string | null;
+    hidden: boolean;
     lastEpisode: { season: number; number: number } | null;
     nextEpisode: { season: number; number: number; title: string | null; firstAired: string | null } | null;
   } | null;
@@ -50,6 +53,7 @@ export type LibraryFilters = {
   search?: string;
   sort?: string;
   dir?: "asc" | "desc" | "";
+  watchlistOnly?: boolean;
 };
 
 export type TraktList = { id: number; name: string; slug: string };
@@ -65,6 +69,7 @@ function toQuery(filters: LibraryFilters): string {
   if (filters.search) params.set("search", filters.search);
   if (filters.sort) params.set("sort", filters.sort);
   if (filters.dir) params.set("dir", filters.dir);
+  if (filters.watchlistOnly) params.set("watchlist", "1");
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
@@ -81,12 +86,20 @@ export function fetchShowDetail(id: number): Promise<ShowListItem> {
   return api.get<ShowListItem>(`/shows/${id}`);
 }
 
+export function hideShow(id: number): Promise<void> {
+  return api.post(`/shows/${id}/hide`);
+}
+
+export function unhideShow(id: number): Promise<void> {
+  return api.post(`/shows/${id}/unhide`);
+}
+
 export function fetchMovieDetail(id: number): Promise<MovieListItem> {
   return api.get<MovieListItem>(`/movies/${id}`);
 }
 
-export function fetchGenres(type: "shows" | "movies"): Promise<string[]> {
-  return api.get<string[]>(`/genres?type=${type}`);
+export function fetchGenres(type: "shows" | "movies", watchlistOnly = false): Promise<string[]> {
+  return api.get<string[]>(`/genres?type=${type}${watchlistOnly ? "&watchlist=1" : ""}`);
 }
 
 export function fetchLists(): Promise<TraktList[]> {

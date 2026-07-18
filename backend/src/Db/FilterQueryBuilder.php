@@ -42,7 +42,12 @@ final class FilterQueryBuilder
 
         if (!empty($filters['search'])) {
             $where[] = "{$alias}.title LIKE :search";
-            $params['search'] = '%' . $filters['search'] . '%';
+            // Escape LIKE's own wildcard characters (and the escape character itself) in the
+            // user's search text -- otherwise a literal "%" or "_" in the query is
+            // interpreted as a SQL wildcard instead of matched literally. MySQL's default
+            // LIKE escape character is backslash, no explicit ESCAPE clause needed.
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['search']);
+            $params['search'] = '%' . $escaped . '%';
         }
 
         return [$where, $params];

@@ -11,6 +11,7 @@ use TraktOr\Db\Repositories\RatingRepository;
 use TraktOr\Db\Repositories\SettingsRepository;
 use TraktOr\Db\Repositories\ShowRepository;
 use TraktOr\Db\Repositories\SyncStateRepository;
+use TraktOr\Db\Repositories\WatchlistRepository;
 use TraktOr\Support\Languages;
 use TraktOr\Tmdb\TmdbClient;
 use TraktOr\Trakt\TraktClient;
@@ -24,6 +25,7 @@ final class SyncService
     private ProgressRepository $progress;
     private RatingRepository $ratings;
     private ListRepository $lists;
+    private WatchlistRepository $watchlist;
     private SyncStateRepository $state;
     private string $language;
 
@@ -36,6 +38,7 @@ final class SyncService
         $this->progress = new ProgressRepository();
         $this->ratings = new RatingRepository();
         $this->lists = new ListRepository();
+        $this->watchlist = new WatchlistRepository();
         $this->state = new SyncStateRepository();
         $this->language = (new SettingsRepository())->getLanguage();
     }
@@ -54,6 +57,8 @@ final class SyncService
                 'movies' => $this->syncWatchedMovies(),
                 'ratings' => $this->syncRatings(),
                 'lists' => $this->syncLists(),
+                'watchlist' => $this->syncWatchlist(),
+                'hiddenShows' => $this->syncHiddenShows(),
             ];
             $warning = $shows['skipped'] > 0
                 ? "{$shows['skipped']} Serie(n) beim Sync uebersprungen (Metadaten-Abruf fehlgeschlagen)."
@@ -138,45 +143,80 @@ final class SyncService
         $this->syncShow($showTraktId);
     }
 
-    /** Raw season/episode data for the episode list -- progress/metadata live from Trakt,
-     *  episode titles from the cache (see resolveEpisodeTitles()). */
-    public function getEpisodes(int $showTraktId): array
+    /** Season/episode shape for the episode list -- cacheable, rarely changes. Episode titles
+     *  come from the existing per-language cache (see resolveEpisodeTitles()); watched status
+     *  is a separate, always-live call (see getProgress()). */
+    public function getSeasonShape(int $showTraktId): array
     {
-        $show = $this->trakt->get("/shows/{$showTraktId}?extended=full");
-        $tmdbId = $show['ids']['tmdb'] ?? null;
+        $tmdbId = $this->shows->getTmdbId($showTraktId);
+        $structure = $this->shows->getSeasonStructure($showTraktId);
+        if ($structure === null) {
+            $structure = $this->buildSeasonStructure($showTraktId, null);
+        }
 
-        $data = $this->trakt->get("/shows/{$showTraktId}/progress/watched?extended=full");
-        $seasons = $data['seasons'] ?? [];
-
-        $titles = $this->resolveEpisodeTitles($showTraktId, $tmdbId, $seasons);
-        $years = $this->resolveSeasonYears($showTraktId);
+        $titles = $this->resolveEpisodeTitles($showTraktId, $tmdbId, $structure['seasons']);
 
         return array_map(fn ($season) => [
             'number' => $season['number'],
-            'year' => $years[$season['number']] ?? null,
+            'year' => $season['year'],
+            'episodes' => array_map(fn ($number) => [
+                'number' => $number,
+                'title' => $titles[$season['number']][$number] ?? null,
+            ], $season['episodeNumbers']),
+        ], $structure['seasons']);
+    }
+
+    /** Live per-episode watched status -- always fresh from Trakt, never cached (completion
+     *  counts change on every watch mutation, unlike the shape above). As a side effect,
+     *  opportunistically rebuilds the season_structure cache if Trakt's aired-episode count
+     *  has moved since it was last built -- this runs on every page view (not just after a
+     *  watch mutation through this app), so even a show that's only ever watched elsewhere
+     *  (Trakt's own app/TV client) keeps its structure cache from going stale indefinitely. */
+    public function getProgress(int $showTraktId): array
+    {
+        $data = $this->trakt->get("/shows/{$showTraktId}/progress/watched?extended=full");
+
+        $cached = $this->shows->getSeasonStructure($showTraktId);
+        $liveAired = $data['aired'] ?? null;
+        if ($cached === null || ($cached['airedEpisodes'] ?? null) !== $liveAired) {
+            $this->buildSeasonStructure($showTraktId, $liveAired);
+        }
+
+        return array_map(fn ($season) => [
+            'number' => $season['number'],
             'aired' => $season['aired'],
             'completed' => $season['completed'],
             'episodes' => array_map(fn ($episode) => [
                 'number' => $episode['number'],
-                'title' => $titles[$season['number']][$episode['number']] ?? null,
                 'completed' => $episode['completed'],
                 'lastWatchedAt' => self::toDatetime($episode['last_watched_at'] ?? null),
             ], $season['episodes'] ?? []),
-        ], $seasons);
+        ], $data['seasons'] ?? []);
     }
 
-    /** Premiere year per season, straight from Trakt (one call covers every season of the
-     *  show) -- 'first_aired' is missing for not-yet-aired seasons. */
-    private function resolveSeasonYears(int $showTraktId): array
+    /** One Trakt call for the whole show's season/episode shape -- extended=episodes embeds
+     *  each season's full episode list, extended=full adds first_aired for the premiere year.
+     *  Specials (season 0) are dropped to match the old behavior (previously sourced from
+     *  /progress/watched, which excludes them by default). Cached in shows.season_structure
+     *  until getProgress() detects it's gone stale.
+     *
+     * @return array{airedEpisodes: ?int, seasons: array<int, array{number:int, year:?int, episodeNumbers:int[]}>}
+     */
+    private function buildSeasonStructure(int $showTraktId, ?int $airedEpisodes): array
     {
-        $seasons = $this->trakt->get("/shows/{$showTraktId}/seasons?extended=full");
+        $seasons = $this->trakt->get("/shows/{$showTraktId}/seasons?extended=full,episodes");
 
-        $years = [];
-        foreach ($seasons as $season) {
-            $firstAired = $season['first_aired'] ?? null;
-            $years[$season['number']] = $firstAired ? (int) substr($firstAired, 0, 4) : null;
-        }
-        return $years;
+        $structure = [
+            'airedEpisodes' => $airedEpisodes,
+            'seasons' => array_values(array_map(fn ($season) => [
+                'number' => $season['number'],
+                'year' => isset($season['first_aired']) ? (int) substr($season['first_aired'], 0, 4) : null,
+                'episodeNumbers' => array_map(fn ($e) => $e['number'], $season['episodes'] ?? []),
+            ], array_filter($seasons, fn ($s) => $s['number'] !== 0))),
+        ];
+
+        $this->shows->updateSeasonStructure($showTraktId, $structure);
+        return $structure;
     }
 
     /**
@@ -186,6 +226,7 @@ final class SyncService
      * Titles that have already been assigned practically never change after their initial
      * release -- a manual "sync now" covers the rare correction case.
      *
+     * @param array<int, array{number:int, year:?int, episodeNumbers:int[]}> $seasons from season_structure
      * @return array<int, array<int, string>> [season => [episode number => title]]
      */
     private function resolveEpisodeTitles(int $showTraktId, ?int $tmdbId, array $seasons): array
@@ -194,7 +235,7 @@ final class SyncService
 
         $missingSeasons = [];
         foreach ($seasons as $season) {
-            $knownEpisodes = array_map(fn ($e) => $e['number'], $season['episodes'] ?? []);
+            $knownEpisodes = $season['episodeNumbers'];
             $cachedEpisodes = array_keys($cached[$season['number']] ?? []);
             if ($knownEpisodes !== [] && array_diff($knownEpisodes, $cachedEpisodes) !== []) {
                 $missingSeasons[] = $season['number'];
@@ -248,6 +289,37 @@ final class SyncService
         $key = $itemType === 'movie' ? 'movies' : 'shows';
         $this->trakt->post('/sync/ratings/remove', [$key => [['ids' => ['trakt' => $traktId]]]]);
         $this->ratings->deleteOne($itemType, $traktId);
+    }
+
+    /** @param 'show'|'movie' $itemType */
+    public function removeFromWatchlist(string $itemType, int $traktId): void
+    {
+        $key = $itemType === 'movie' ? 'movies' : 'shows';
+        $this->trakt->post('/sync/watchlist/remove', [$key => [['ids' => ['trakt' => $traktId]]]]);
+        $this->watchlist->deleteOne($itemType, $traktId);
+    }
+
+    /** @param 'show'|'movie' $itemType */
+    public function addToWatchlist(string $itemType, int $traktId): void
+    {
+        $key = $itemType === 'movie' ? 'movies' : 'shows';
+        $this->trakt->post('/sync/watchlist', [$key => [['ids' => ['trakt' => $traktId]]]]);
+        $this->watchlist->upsertOne($itemType, $traktId, date('Y-m-d H:i:s'));
+    }
+
+    /** "Cancel" a show -- hides it from Trakt's watch-progress calculation (what powers
+     *  Continue Watching / up-next), without touching watch history or collection. Section
+     *  'progress_watched' is Trakt's dedicated mechanism for exactly this. */
+    public function hideShow(int $traktShowId): void
+    {
+        $this->trakt->post('/users/hidden/progress_watched', ['shows' => [['ids' => ['trakt' => $traktShowId]]]]);
+        $this->progress->setHidden($traktShowId, true);
+    }
+
+    public function unhideShow(int $traktShowId): void
+    {
+        $this->trakt->post('/users/hidden/progress_watched/remove', ['shows' => [['ids' => ['trakt' => $traktShowId]]]]);
+        $this->progress->setHidden($traktShowId, false);
     }
 
     /** Resyncs metadata + progress for a single show, e.g. after a watch mutation. */
@@ -330,7 +402,7 @@ final class SyncService
 
         foreach ($watched as $entry) {
             $movie = $entry['movie'];
-            $this->movies->upsert($this->mapMovie($movie));
+            $this->movies->upsert($this->mapMovie($movie, $entry['last_watched_at'] ?? null));
             $this->applyMovieTranslation($movie['ids']['trakt'], $movie['ids']['tmdb'] ?? null, $details);
         }
 
@@ -392,6 +464,92 @@ final class SyncService
         return count($lists);
     }
 
+    /** Items marked "to watch" but not yet started (GET /sync/watchlist) -- shows and movies
+     *  come back mixed in one response. Metadata is upserted via the exact same mapShow()/
+     *  mapMovie()/applyXTranslation() pipeline as the watched-sync paths, so a watchlist item
+     *  is fully detail-page-ready (poster, overview, episodes) even if never watched. */
+    private function syncWatchlist(): int
+    {
+        $entries = $this->trakt->get('/sync/watchlist');
+        if ($entries === []) {
+            $this->watchlist->replaceAll(null, []);
+            return 0;
+        }
+
+        $showEntries = array_values(array_filter($entries, fn ($e) => $e['type'] === 'show'));
+        $movieEntries = array_values(array_filter($entries, fn ($e) => $e['type'] === 'movie'));
+        $rows = [];
+
+        if ($showEntries !== []) {
+            $traktIds = array_map(fn ($e) => $e['show']['ids']['trakt'], $showEntries);
+            $metaPaths = array_map(fn ($id) => "/shows/{$id}?extended=full", $traktIds);
+            $metaResults = $this->trakt->getMany($metaPaths);
+            $showsById = [];
+            foreach ($metaResults as $show) {
+                $showsById[$show['ids']['trakt']] = $show;
+            }
+
+            $tmdbIds = array_values(array_filter(array_map(
+                fn ($show) => $show['ids']['tmdb'] ?? null,
+                $showsById
+            )));
+            $details = $this->tmdb->getManyDetails($tmdbIds, 'tv', Languages::locale($this->language));
+
+            foreach ($showEntries as $entry) {
+                $traktId = $entry['show']['ids']['trakt'];
+                // Metadata fetch failed: skip -- a watchlist_items row referencing a show
+                // with no local `shows` row would be undetailable on its own detail page.
+                if (!isset($showsById[$traktId])) {
+                    continue;
+                }
+                $show = $showsById[$traktId];
+                $this->shows->upsert($this->mapShow($show));
+                $this->applyShowTranslation($traktId, $show['ids']['tmdb'] ?? null, $details);
+                $rows[] = [
+                    'item_type' => 'show',
+                    'item_trakt_id' => $traktId,
+                    'listed_at' => self::toDatetime($entry['listed_at'] ?? null) ?? date('Y-m-d H:i:s'),
+                ];
+            }
+        }
+
+        if ($movieEntries !== []) {
+            $tmdbIds = array_values(array_filter(array_map(
+                fn ($e) => $e['movie']['ids']['tmdb'] ?? null,
+                $movieEntries
+            )));
+            $details = $this->tmdb->getManyDetails($tmdbIds, 'movie', Languages::locale($this->language));
+
+            foreach ($movieEntries as $entry) {
+                $movie = $entry['movie'];
+                // watched_at intentionally omitted (defaults to null) -- upsert()'s COALESCE
+                // guard means this never clobbers an already-watched movie's watched_at.
+                $this->movies->upsert($this->mapMovie($movie));
+                $this->applyMovieTranslation($movie['ids']['trakt'], $movie['ids']['tmdb'] ?? null, $details);
+                $rows[] = [
+                    'item_type' => 'movie',
+                    'item_trakt_id' => $movie['ids']['trakt'],
+                    'listed_at' => self::toDatetime($entry['listed_at'] ?? null) ?? date('Y-m-d H:i:s'),
+                ];
+            }
+        }
+
+        $this->watchlist->replaceAll(null, $rows);
+        return count($rows);
+    }
+
+    /** Reconciles local hidden flags with Trakt's 'progress_watched' hidden list (source of
+     *  truth) -- a show unhidden directly on trakt.tv also un-hides here on the next sync.
+     *  This endpoint is paginated per Trakt's docs, but a personal watchlist-sized hidden
+     *  list comfortably fits in one page -- no pagination handling needed. */
+    private function syncHiddenShows(): int
+    {
+        $entries = $this->trakt->get('/users/hidden/progress_watched?type=show&limit=100');
+        $ids = array_map(fn ($entry) => $entry['show']['ids']['trakt'], $entries);
+        $this->progress->replaceHiddenFlags($ids);
+        return count($ids);
+    }
+
     /** title/overview are always Trakt's original (English) -- guaranteed fallback, see applyShowTranslation(). */
     private function mapShow(array $show): array
     {
@@ -415,7 +573,7 @@ final class SyncService
         ];
     }
 
-    private function mapMovie(array $movie): array
+    private function mapMovie(array $movie, ?string $watchedAtIso = null): array
     {
         return [
             'trakt_id' => $movie['ids']['trakt'],
@@ -431,6 +589,7 @@ final class SyncService
             'released' => $movie['released'] ?? null,
             'certification' => $movie['certification'] ?? null,
             'raw_json' => json_encode($movie),
+            'watched_at' => self::toDatetime($watchedAtIso),
         ];
     }
 

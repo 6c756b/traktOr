@@ -1,33 +1,65 @@
 <script lang="ts">
-  import { fetchEpisodes, watchEpisode, unwatchEpisode, watchSeason, type Season } from "../api/episodes";
+  import {
+    fetchSeasonShape, fetchProgress, watchEpisode, unwatchEpisode, watchSeason,
+    type SeasonShape, type SeasonProgress, type EpisodeProgress,
+  } from "../api/episodes";
   import StateMessage from "./StateMessage.svelte";
+  import { toasts } from "../stores/toast";
+  import { apiErrorMessage } from "../api/errors";
   import { t } from "../i18n";
 
-  let { showId }: { showId: number } = $props();
+  /** Called after a watch/unwatch/season mutation succeeds, so the parent (e.g. the show's
+   *  progress summary card) can refresh itself -- this component only reloads its own state. */
+  let { showId, onWatchChange }: { showId: number; onWatchChange?: () => void } = $props();
 
-  let seasons = $state<Season[] | null>(null);
-  let error = $state("");
+  // Shape (season/episode numbers, titles, year) and progress (watched status) load
+  // independently and are never awaited against each other -- shape usually resolves near
+  // instantly (cached), so the season rows can paint before watched-counts/checkmarks arrive.
+  let shape = $state<SeasonShape[] | null>(null);
+  let shapeError = $state("");
+  let progress = $state<Map<number, SeasonProgress> | null>(null);
+  let progressError = $state("");
   let expanded = $state<number | null>(null);
   let pending = $state<string | null>(null);
 
-  async function load() {
-    error = "";
+  type SeasonRow = SeasonShape & { progressState: "loading" | "unavailable" | SeasonProgress };
+
+  const rows = $derived<SeasonRow[]>(
+    (shape ?? []).map((s) => ({
+      ...s,
+      progressState: progress === null ? "loading" : (progress.get(s.number) ?? "unavailable"),
+    }))
+  );
+
+  async function loadShape() {
+    shapeError = "";
     try {
-      seasons = await fetchEpisodes(showId);
+      shape = await fetchSeasonShape(showId);
     } catch {
-      error = $t("episodes.loadError");
+      shapeError = $t("episodes.loadError");
+    }
+  }
+
+  async function loadProgress() {
+    progressError = "";
+    try {
+      const seasons = await fetchProgress(showId);
+      progress = new Map(seasons.map((s) => [s.number, s]));
+    } catch {
+      progressError = $t("episodes.progressLoadError");
     }
   }
 
   $effect(() => {
-    load();
+    loadShape();
+    loadProgress();
   });
 
   function toggleExpand(seasonNumber: number) {
     expanded = expanded === seasonNumber ? null : seasonNumber;
   }
 
-  async function toggleEpisode(season: number, episode: { number: number; completed: boolean }) {
+  async function toggleEpisode(season: number, episode: EpisodeProgress) {
     const key = `ep-${season}-${episode.number}`;
     pending = key;
     try {
@@ -36,7 +68,10 @@
       } else {
         await watchEpisode(showId, season, episode.number);
       }
-      await load();
+      await loadProgress();
+      onWatchChange?.();
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
     } finally {
       pending = null;
     }
@@ -47,7 +82,10 @@
     pending = key;
     try {
       await watchSeason(showId, season);
-      await load();
+      await loadProgress();
+      onWatchChange?.();
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
     } finally {
       pending = null;
     }
@@ -55,40 +93,46 @@
 </script>
 
 <div class="stack gap-s">
-  {#if error}
-    <StateMessage variant="error" text={error} />
-  {:else if !seasons}
+  {#if shapeError}
+    <StateMessage variant="error" text={shapeError} />
+  {:else if !shape}
     <StateMessage variant="loading" text={$t("common.pageLoading")} />
   {:else}
-    {#each seasons as season (season.number)}
+    {#each rows as season (season.number)}
+      {@const sp = season.progressState}
       <div class="card season">
-        <div class="row space-between">
-          <button class="season-toggle row gap-s" onclick={() => toggleExpand(season.number)}>
-            <span>{expanded === season.number ? "▾" : "▸"}</span>
-            <span>{$t("episodes.season", { n: season.number })}</span>
-            {#if season.year}
-              <span class="text-muted">· {season.year}</span>
-            {/if}
-            <span class="text-muted">({season.completed} / {season.aired})</span>
-          </button>
-          <button
-            class="btn btn-secondary btn-sm"
-            disabled={pending === `season-${season.number}`}
-            onclick={() => markSeasonWatched(season.number)}
-          >
-            {pending === `season-${season.number}` ? $t("common.markingWatched") : $t("episodes.markSeasonWatched")}
-          </button>
-        </div>
+        <button class="season-toggle row gap-s wrap" onclick={() => toggleExpand(season.number)}>
+          <span>{expanded === season.number ? "▾" : "▸"}</span>
+          <span class="nowrap">{$t("episodes.season", { n: season.number })}</span>
+          {#if season.year}
+            <span class="text-muted nowrap">· {season.year}</span>
+          {/if}
+          {#if sp === "loading"}
+            <span class="text-muted">…</span>
+          {:else if sp === "unavailable"}
+            <span class="text-muted nowrap" title={progressError || undefined}>—</span>
+          {:else}
+            <span class="text-muted nowrap">({sp.completed} / {sp.aired})</span>
+          {/if}
+        </button>
 
         {#if expanded === season.number}
           <div class="stack gap-xs episode-rows">
+            <button
+              class="btn btn-secondary btn-sm season-mark-watched"
+              disabled={pending === `season-${season.number}` || sp === "loading" || sp === "unavailable"}
+              onclick={() => markSeasonWatched(season.number)}
+            >
+              {pending === `season-${season.number}` ? $t("common.markingWatched") : $t("episodes.markSeasonWatched")}
+            </button>
             {#each season.episodes as episode (episode.number)}
+              {@const ep = sp !== "loading" && sp !== "unavailable" ? sp.episodes.find((e) => e.number === episode.number) : undefined}
               <button
                 class="row gap-s episode-row"
-                disabled={pending === `ep-${season.number}-${episode.number}`}
-                onclick={() => toggleEpisode(season.number, episode)}
+                disabled={pending === `ep-${season.number}-${episode.number}` || !ep}
+                onclick={() => ep && toggleEpisode(season.number, ep)}
               >
-                <span class="check {episode.completed ? 'checked' : ''}">{episode.completed ? "✓" : ""}</span>
+                <span class="check {ep?.completed ? 'checked' : ''}">{ep?.completed ? "✓" : ""}</span>
                 <span class="text-muted episode-number">{episode.number}.</span>
                 <span>{episode.title ?? $t("episodes.episodeFallback", { n: episode.number })}</span>
               </button>
@@ -110,12 +154,21 @@
   }
 
   .season-toggle {
+    width: 100%;
     background: none;
     border: none;
     cursor: pointer;
     font-size: 1rem;
     color: var(--text);
     padding: 0;
+  }
+
+  .nowrap {
+    white-space: nowrap;
+  }
+
+  .season-mark-watched {
+    align-self: flex-end;
   }
 
   .episode-rows {

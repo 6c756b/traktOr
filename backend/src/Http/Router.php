@@ -53,6 +53,6 @@ final class Router
             return;
         }
 
-        Response::error(404, 'Not found');
+        Response::error(404, 'not_found');
     }
 }

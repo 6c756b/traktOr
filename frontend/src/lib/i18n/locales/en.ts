@@ -4,13 +4,18 @@
  */
 export default {
   "nav.continueWatching": "Continue Watching",
+  "nav.watchlist": "Watchlist",
   "nav.library": "Library",
   "nav.settings": "Settings",
 
   "common.pageLoading": "The tractor is rolling in…",
   "common.loadError": "Failed to load.",
+  "common.actionError": "Action failed.",
   "common.actionPending": "The tractor is rolling…",
   "common.markingWatched": "Bringing it in…",
+  "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
+  "common.scrollToTop": "Scroll to top",
 
   "errors.wrongPassword": "Wrong password.",
   "errors.rateLimited": "Too many attempts — please wait a moment before trying again.",
@@ -21,6 +26,7 @@ export default {
   "errors.movieNotFound": "Movie not found.",
   "errors.unsupportedLanguage": "Unsupported language.",
   "errors.invalidOauthState": "Invalid OAuth state — please try connecting again.",
+  "errors.notFound": "Not found.",
   "errors.generic": "Something went wrong. Please try again.",
 
   "continueWatching.sortNew": "Newest first",
@@ -39,6 +45,7 @@ export default {
   "library.sort.year": "Year",
   "library.sort.rating": "Rating",
   "library.sort.added": "Last watched",
+  "library.statusCanceled": "Dropped",
 
   "filter.searchPlaceholder": "Search titles…",
   "filter.defaultDirection": "Default order",
@@ -52,6 +59,7 @@ export default {
   "filter.ratingFrom": "Rating from",
   "filter.list": "List",
   "filter.reset": "Reset filters",
+  "filter.toggleLabel": "Search & filters",
 
   "detail.minutes": "{n} min",
   "detail.progressTitle": "Progress",
@@ -60,13 +68,35 @@ export default {
   "detail.nextEpisode": "Next episode: {code}",
   "detail.episodesHeading": "Episodes",
   "detail.posterAlt": "Poster for {title}",
+  "detail.cancel": "Cancel show",
+  "detail.resume": "Resume tracking",
+  "detail.cancelSuccess": "Show canceled — removed from Continue Watching.",
+  "detail.resumeSuccess": "Tracking resumed.",
+  "detail.hideError": "Couldn't cancel the show.",
+  "detail.unhideError": "Couldn't resume tracking.",
+  "detail.moreActions": "More actions",
+  "detail.openInTrakt": "Open on trakt.tv",
+  "detail.openInTmdb": "Open on TMDB",
 
   "episodes.loadError": "Couldn't load episodes.",
+  "episodes.progressLoadError": "Couldn't load watched status.",
   "episodes.season": "Season {n}",
   "episodes.markSeasonWatched": "Mark season as watched",
   "episodes.episodeFallback": "Episode {n}",
 
   "rating.rate": "Rate {n}",
+  "rating.error": "Couldn't save the rating.",
+
+  "watchlist.empty": "Nothing on the watchlist yet.",
+  "watchlist.remove": "Remove from watchlist",
+  "watchlist.removeSuccess": "Removed from watchlist.",
+  "watchlist.removeError": "Couldn't remove from watchlist.",
+  "watchlist.removeConfirmTitle": "Remove from watchlist?",
+  "watchlist.removeConfirmBody": "“{title}” will be removed from your watchlist.",
+  "watchlist.add": "Add to watchlist",
+  "watchlist.addSuccess": "Added to watchlist.",
+  "watchlist.addError": "Couldn't add to watchlist.",
+  "watchlist.sort.added": "Recently added",
 
   "login.tagline": "Your tractor is waiting in the barn — just the password, then off to the field.",
   "login.passwordPlaceholder": "Password",
@@ -76,6 +106,7 @@ export default {
   "login.footerGithub": "Source on GitHub",
 
   "settings.justConnected": "Trakt is now connected. The tractor can start rolling.",
+  "settings.traktConnectFailed": "Connecting to Trakt failed. Please try again.",
   "settings.traktConnection": "Trakt Connection",
   "settings.traktConnectionHint": "Connects the tractor to your Trakt.tv account so shows, movies and ratings can be synced.",
   "settings.connected": "connected",
@@ -93,7 +124,7 @@ export default {
   "settings.sync": "Sync",
   "settings.syncHint": "Manually pulls shows, movies, ratings and lists from Trakt — the nightly cron usually handles this automatically.",
   "settings.syncNow": "Sync now",
-  "settings.syncResult": "{shows} shows, {movies} movies, {ratings} ratings, {lists} lists synced.",
+  "settings.syncResult": "{shows} shows, {movies} movies, {ratings} ratings, {lists} lists, {watchlist} watchlist items, {hiddenShows} hidden shows synced.",
   "settings.syncSkippedWarning": "{n} show(s) skipped (metadata fetch failed) — try syncing again later.",
   "settings.syncError": "Sync failed.",
   "settings.session": "Session",

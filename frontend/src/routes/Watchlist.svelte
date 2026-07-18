@@ -3,56 +3,54 @@
   import { navigate } from "../lib/router";
   import { apiErrorMessage } from "../lib/api/errors";
   import {
-    fetchShows, fetchMovies, fetchGenres, fetchLists,
-    type ShowListItem, type MovieListItem, type LibraryFilters, type TraktList,
+    fetchShows, fetchMovies, fetchGenres,
+    type ShowListItem, type MovieListItem, type LibraryFilters,
   } from "../lib/api/library";
+  import { removeFromWatchlist } from "../lib/api/watchlist";
+  import { toasts } from "../lib/stores/toast";
   import FilterBar from "../lib/components/FilterBar.svelte";
   import LibraryCard from "../lib/components/LibraryCard.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
+  import ConfirmDialog from "../lib/components/ConfirmDialog.svelte";
   import { t } from "../lib/i18n";
 
-  type LibraryType = "shows" | "movies";
+  type WatchlistType = "shows" | "movies";
 
-  function parseFiltersFromUrl(): { type: LibraryType; filters: LibraryFilters } {
+  function parseFiltersFromUrl(): { type: WatchlistType; filters: LibraryFilters } {
     const params = new URLSearchParams(window.location.search);
-    const type: LibraryType = params.get("type") === "movies" ? "movies" : "shows";
-    const filters: LibraryFilters = { sort: params.get("sort") ?? "title", dir: (params.get("dir") as LibraryFilters["dir"]) ?? "" };
+    const type: WatchlistType = params.get("type") === "movies" ? "movies" : "shows";
+    const filters: LibraryFilters = {
+      sort: params.get("sort") ?? "listed",
+      dir: (params.get("dir") as LibraryFilters["dir"]) ?? "",
+      watchlistOnly: true,
+    };
     if (params.get("genres")) filters.genres = params.get("genres")!.split(",");
     if (params.get("statuses")) filters.statuses = params.get("statuses")!.split(",");
     if (params.get("year_min")) filters.yearMin = Number(params.get("year_min"));
     if (params.get("year_max")) filters.yearMax = Number(params.get("year_max"));
     if (params.get("rating_min")) filters.ratingMin = Number(params.get("rating_min"));
-    if (params.get("list_id")) filters.listId = Number(params.get("list_id"));
     if (params.get("search")) filters.search = params.get("search")!;
     return { type, filters };
   }
 
   const initial = parseFiltersFromUrl();
-  let type = $state<LibraryType>(initial.type);
+  let type = $state<WatchlistType>(initial.type);
   let filters = $state<LibraryFilters>(initial.filters);
 
   let shows = $state<ShowListItem[] | null>(null);
   let movies = $state<MovieListItem[] | null>(null);
   let genreOptions = $state<string[]>([]);
-  let lists = $state<TraktList[]>([]);
   let error = $state("");
 
-  const showSortOptions = $derived([
-    { value: "title", label: $t("library.sort.title") },
-    { value: "year", label: $t("library.sort.year") },
-    { value: "rating", label: $t("library.sort.rating") },
-    { value: "added", label: $t("library.sort.added") },
-  ]);
-  const movieSortOptions = $derived([
+  const sortOptions = $derived([
+    { value: "listed", label: $t("watchlist.sort.added") },
     { value: "title", label: $t("library.sort.title") },
     { value: "year", label: $t("library.sort.year") },
     { value: "rating", label: $t("library.sort.rating") },
   ]);
 
-  async function loadGenresAndLists() {
-    const [genres, listResult] = await Promise.all([fetchGenres(type), fetchLists()]);
-    genreOptions = genres;
-    lists = listResult;
+  async function loadGenres() {
+    genreOptions = await fetchGenres(type, true);
   }
 
   async function load() {
@@ -76,11 +74,10 @@
     if (filters.yearMin) params.set("year_min", String(filters.yearMin));
     if (filters.yearMax) params.set("year_max", String(filters.yearMax));
     if (filters.ratingMin) params.set("rating_min", String(filters.ratingMin));
-    if (filters.listId) params.set("list_id", String(filters.listId));
     if (filters.search) params.set("search", filters.search);
-    if (filters.sort && filters.sort !== "title") params.set("sort", filters.sort);
+    if (filters.sort && filters.sort !== "listed") params.set("sort", filters.sort);
     if (filters.dir) params.set("dir", filters.dir);
-    navigate(`/library?${params.toString()}`, true);
+    navigate(`/watchlist?${params.toString()}`, true);
   }
 
   $effect(() => {
@@ -92,15 +89,38 @@
     load();
   });
 
-  onMount(loadGenresAndLists);
+  onMount(loadGenres);
 
-  function switchType(next: LibraryType) {
+  function switchType(next: WatchlistType) {
     if (type === next) return;
     type = next;
-    filters = { sort: "title", dir: "" };
+    filters = { sort: "listed", dir: "", watchlistOnly: true };
     shows = null;
     movies = null;
-    loadGenresAndLists();
+    loadGenres();
+  }
+
+  let pendingRemove = $state<{ itemType: "show" | "movie"; id: number; title: string } | null>(null);
+
+  function handleRemove(itemType: "show" | "movie", id: number, title: string) {
+    pendingRemove = { itemType, id, title };
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemove) return;
+    const { itemType, id } = pendingRemove;
+    pendingRemove = null;
+    try {
+      await removeFromWatchlist(itemType, id);
+      if (type === "shows") {
+        shows = shows ? shows.filter((s) => s.id !== id) : shows;
+      } else {
+        movies = movies ? movies.filter((m) => m.id !== id) : movies;
+      }
+      toasts.push($t("watchlist.removeSuccess"), "success");
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "watchlist.removeError", $t), "error");
+    }
   }
 
   const items = $derived(type === "shows" ? shows : movies);
@@ -108,7 +128,7 @@
 
 <div class="container stack gap-l page">
   <div class="row space-between wrap gap-s">
-    <h1>{$t("nav.library")}</h1>
+    <h1>{$t("nav.watchlist")}</h1>
     <div class="row gap-s">
       <button class="btn {type === 'shows' ? 'btn-primary' : 'btn-secondary'}" onclick={() => switchType("shows")}>{$t("library.shows")}</button>
       <button class="btn {type === 'movies' ? 'btn-primary' : 'btn-secondary'}" onclick={() => switchType("movies")}>{$t("library.movies")}</button>
@@ -118,9 +138,9 @@
   <FilterBar
     bind:filters
     {genreOptions}
-    {lists}
+    lists={[]}
     showStatusToggle={type === "shows"}
-    sortOptions={type === "shows" ? showSortOptions : movieSortOptions}
+    {sortOptions}
   />
 
   {#if error}
@@ -128,7 +148,7 @@
   {:else if items === null}
     <StateMessage variant="loading" text={$t("common.pageLoading")} />
   {:else if items.length === 0}
-    <StateMessage variant="empty" text={$t("library.empty")} />
+    <StateMessage variant="empty" text={$t("watchlist.empty")} />
   {:else}
     <div class="grid">
       {#each items as item (item.id)}
@@ -142,6 +162,7 @@
             rating={item.rating}
             status={item.status}
             progress={(item as ShowListItem).progress}
+            onRemove={() => handleRemove("show", item.id, item.title)}
           />
         {:else}
           <LibraryCard
@@ -152,9 +173,21 @@
             genres={item.genres}
             rating={item.rating}
             status={item.status}
+            onRemove={() => handleRemove("movie", item.id, item.title)}
           />
         {/if}
       {/each}
     </div>
   {/if}
 </div>
+
+<ConfirmDialog
+  open={pendingRemove !== null}
+  title={$t("watchlist.removeConfirmTitle")}
+  message={$t("watchlist.removeConfirmBody", { title: pendingRemove?.title ?? "" })}
+  confirmLabel={$t("common.confirm")}
+  cancelLabel={$t("common.cancel")}
+  variant="danger"
+  onConfirm={confirmRemove}
+  onCancel={() => (pendingRemove = null)}
+/>

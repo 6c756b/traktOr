@@ -1,5 +1,6 @@
 <script lang="ts">
   import { rateItem, unrateItem, type ItemType } from "../api/rating";
+  import { toasts } from "../stores/toast";
   import { t } from "../i18n";
 
   let { itemType, id, rating = $bindable() }: {
@@ -12,6 +13,7 @@
   let saving = $state(false);
 
   async function handleClick(value: number) {
+    const previous = rating;
     saving = true;
     try {
       if (rating === value) {
@@ -21,6 +23,9 @@
         await rateItem(itemType, id, value);
         rating = value;
       }
+    } catch {
+      rating = previous;
+      toasts.push($t("rating.error"), "error");
     } finally {
       saving = false;
     }

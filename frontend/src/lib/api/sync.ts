@@ -1,6 +1,14 @@
 import { api } from "./client";
 
-export type SyncResult = { shows: number; showsSkipped: number; movies: number; ratings: number; lists: number };
+export type SyncResult = {
+  shows: number;
+  showsSkipped: number;
+  movies: number;
+  ratings: number;
+  lists: number;
+  watchlist: number;
+  hiddenShows: number;
+};
 
 export type SyncStateRow = {
   resource: string;

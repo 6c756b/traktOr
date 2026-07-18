@@ -60,3 +60,11 @@
     </div>
   {/if}
 </div>
+
+<style>
+  @media (max-width: 640px) {
+    .poster {
+      width: 100%;
+    }
+  }
+</style>

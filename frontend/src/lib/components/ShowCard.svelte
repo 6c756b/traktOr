@@ -27,15 +27,15 @@
 </script>
 
 <article class="card stack gap-s show-card">
+  {#if item.newEpisodesCount > 1}
+    <span class="badge poster-badge">+{item.newEpisodesCount}</span>
+  {/if}
   <a href="/show/{item.id}" use:link class="show-card-link stack gap-s">
     <div class="poster">
       {#if item.posterUrl}
         <img src={item.posterUrl} alt={$t("detail.posterAlt", { title: item.title })} loading="lazy" />
       {:else}
         <div class="poster-fallback text-muted">{item.title}</div>
-      {/if}
-      {#if item.newEpisodesCount > 1}
-        <span class="badge poster-badge">+{item.newEpisodesCount}</span>
       {/if}
     </div>
 
@@ -57,6 +57,7 @@
 
 <style>
   .show-card {
+    position: relative;
     padding: 0;
     overflow: hidden;
   }
@@ -121,5 +122,32 @@
 
   .poster-badge {
     background: var(--primary);
+  }
+
+  @media (max-width: 640px) {
+    .show-card-link {
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    .poster {
+      width: 110px;
+      flex-shrink: 0;
+    }
+
+    .show-card-info {
+      padding: var(--space-m);
+    }
+
+    .show-card-action {
+      position: absolute;
+      left: calc(110px + var(--space-m));
+      right: var(--space-m);
+      bottom: var(--space-m);
+      margin: 0;
+      min-height: 36px;
+      padding-block: var(--space-xs);
+      white-space: normal;
+    }
   }
 </style>

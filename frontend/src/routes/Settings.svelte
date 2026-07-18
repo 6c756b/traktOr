@@ -9,7 +9,9 @@
   import { t } from "../lib/i18n";
   import ThemeSwitch from "../lib/components/ThemeSwitch.svelte";
 
-  const justConnected = new URLSearchParams(window.location.search).has("connected");
+  const params = new URLSearchParams(window.location.search);
+  const justConnected = params.has("connected");
+  const traktConnectFailed = params.has("trakt_error");
 
   let syncing = $state(false);
   let syncResult = $state<SyncResult | null>(null);
@@ -19,8 +21,14 @@
   let languageError = $state("");
 
   async function handleLogout() {
-    await logout();
-    navigate("/login", true);
+    try {
+      await logout();
+    } finally {
+      // logout() always resets the local session even if the request itself failed, so
+      // navigating here is safe either way -- this just avoids an unhandled rejection
+      // console warning on a network failure.
+      navigate("/login", true);
+    }
   }
 
   async function handleLanguageChange(newLanguage: string) {
@@ -64,6 +72,12 @@
   {#if justConnected}
     <div class="card card-highlight">
       {$t("settings.justConnected")}
+    </div>
+  {/if}
+
+  {#if traktConnectFailed}
+    <div class="card card-highlight-error text-danger">
+      {$t("settings.traktConnectFailed")}
     </div>
   {/if}
 
@@ -129,6 +143,8 @@
               movies: syncResult.movies,
               ratings: syncResult.ratings,
               lists: syncResult.lists,
+              watchlist: syncResult.watchlist,
+              hiddenShows: syncResult.hiddenShows,
             })}
           </p>
           {#if syncResult.showsSkipped > 0}
@@ -162,6 +178,10 @@
 
   .card-highlight {
     border-color: var(--primary);
+  }
+
+  .card-highlight-error {
+    border-color: var(--danger);
   }
 
   .settings-grid {

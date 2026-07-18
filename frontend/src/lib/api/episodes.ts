@@ -1,22 +1,17 @@
 import { api } from "./client";
 
-export type Episode = {
-  number: number;
-  title: string | null;
-  completed: boolean;
-  lastWatchedAt: string | null;
-};
+export type EpisodeShape = { number: number; title: string | null };
+export type SeasonShape = { number: number; year: number | null; episodes: EpisodeShape[] };
 
-export type Season = {
-  number: number;
-  year: number | null;
-  aired: number;
-  completed: number;
-  episodes: Episode[];
-};
+export type EpisodeProgress = { number: number; completed: boolean; lastWatchedAt: string | null };
+export type SeasonProgress = { number: number; aired: number; completed: number; episodes: EpisodeProgress[] };
 
-export function fetchEpisodes(showId: number): Promise<Season[]> {
-  return api.get<Season[]>(`/shows/${showId}/episodes`);
+export function fetchSeasonShape(showId: number): Promise<SeasonShape[]> {
+  return api.get<SeasonShape[]>(`/shows/${showId}/season-shape`);
+}
+
+export function fetchProgress(showId: number): Promise<SeasonProgress[]> {
+  return api.get<SeasonProgress[]>(`/shows/${showId}/progress`);
 }
 
 export function watchEpisode(showId: number, season: number, number: number) {

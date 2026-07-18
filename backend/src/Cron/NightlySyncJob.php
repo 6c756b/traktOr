@@ -49,6 +49,6 @@ final class NightlySyncJob
         echo "NightlySyncJob: starte Full-Sync...\n";
         $result = (new SyncService())->fullSync();
         echo "NightlySyncJob: fertig - {$result['shows']} Serien, {$result['movies']} Filme, "
-            . "{$result['ratings']} Bewertungen, {$result['lists']} Listen.\n";
+            . "{$result['ratings']} Bewertungen, {$result['lists']} Listen, {$result['watchlist']} Watchlist-Einträge.\n";
     }
 }

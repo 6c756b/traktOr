@@ -46,6 +46,9 @@ function parseLibraryFilters(Request $request): array
     if (!empty($q['search'])) {
         $filters['search'] = $q['search'];
     }
+    if (!empty($q['watchlist'])) {
+        $filters['watchlist_only'] = true;
+    }
 
     return $filters;
 }
@@ -101,7 +104,16 @@ $router->get('/auth/trakt/start', function () {
 $router->get('/auth/trakt/callback', function (Request $request) use ($frontendUrl) {
     $code = $request->query['code'] ?? '';
     $state = $request->query['state'] ?? '';
-    TraktOAuth::handleCallback($code, $state);
+    try {
+        TraktOAuth::handleCallback($code, $state);
+    } catch (\Throwable $e) {
+        // This request is a browser redirect from trakt.tv, not an XHR through the JS api
+        // client -- falling through to the generic 500 handler would strand the user on a
+        // bare JSON error page with no way back into the app. Send them back to Settings
+        // instead, with an indicator the frontend turns into a translated error message.
+        error_log('Trakt OAuth callback failed: ' . $e->getMessage());
+        Response::redirect($frontendUrl . '/settings?trakt_error=1');
+    }
     Response::redirect($frontendUrl . '/settings?connected=1');
 });
 
@@ -167,9 +179,26 @@ $router->post('/watch/season', function (Request $request) {
     Response::json(['item' => (new ContinueWatchingBuilder())->buildOne($showId)]);
 });
 
-$router->get('/shows/:id/episodes', function (Request $request, array $params) {
+$router->post('/shows/:id/hide', function (Request $request, array $params) {
     AppAuth::requireAuth();
-    Response::json((new SyncService())->getEpisodes((int) $params['id']));
+    (new SyncService())->hideShow((int) $params['id']);
+    Response::noContent();
+});
+
+$router->post('/shows/:id/unhide', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    (new SyncService())->unhideShow((int) $params['id']);
+    Response::noContent();
+});
+
+$router->get('/shows/:id/season-shape', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    Response::json((new SyncService())->getSeasonShape((int) $params['id']));
+});
+
+$router->get('/shows/:id/progress', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    Response::json((new SyncService())->getProgress((int) $params['id']));
 });
 
 $router->post('/rate', function (Request $request) {
@@ -239,8 +268,36 @@ $router->get('/movies/:id', function (Request $request, array $params) {
 $router->get('/genres', function (Request $request) {
     AppAuth::requireAuth();
     $type = $request->query['type'] ?? 'shows';
-    $genres = $type === 'movies' ? (new MovieRepository())->distinctGenres() : (new ShowRepository())->distinctGenres();
+    $watchlistOnly = !empty($request->query['watchlist']);
+    $genres = $type === 'movies'
+        ? (new MovieRepository())->distinctGenres($watchlistOnly)
+        : (new ShowRepository())->distinctGenres($watchlistOnly);
     Response::json($genres);
+});
+
+$router->delete('/watchlist/:itemType/:id', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    $itemType = $params['itemType'];
+    $id = (int) $params['id'];
+    if (!in_array($itemType, ['show', 'movie'], true) || $id <= 0) {
+        Response::error(400, 'invalid_item_type');
+    }
+
+    (new SyncService())->removeFromWatchlist($itemType, $id);
+    Response::noContent();
+});
+
+$router->post('/watchlist', function (Request $request) {
+    AppAuth::requireAuth();
+    $body = $request->json();
+    $itemType = $body['itemType'] ?? '';
+    $id = (int) ($body['id'] ?? 0);
+    if (!in_array($itemType, ['show', 'movie'], true) || $id <= 0) {
+        Response::error(400, 'invalid_item_type');
+    }
+
+    (new SyncService())->addToWatchlist($itemType, $id);
+    Response::noContent();
 });
 
 $router->get('/lists', function () {

@@ -4,7 +4,7 @@
   <p><strong>A lightweight, self-hosted companion for your Trakt.tv library.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-0.1.0-166534" alt="Version 0.1.0" />
+    <img src="https://img.shields.io/badge/version-0.2.0-166534" alt="Version 0.2.0" />
     <img src="https://img.shields.io/badge/license-MIT-166534" alt="MIT License" />
     <img src="https://img.shields.io/badge/i18n-EN%20%7C%20DE-166534" alt="Available in English and German" />
   </p>
@@ -26,12 +26,17 @@ Trakt.tv's own web UI is cluttered and slow to get a straight answer out of: *wh
 - **Continue Watching** — next episode per show, sorted by newest or longest waiting, one click to mark
   it (and any earlier gaps in that season) as watched
 - **Library** — search and filter your shows and movies by genre, status, year and rating
+- **Watchlist** — tracks Trakt's watchlist independently from watch history, with the same
+  search/filter/sort tools as Library and one-click add/remove (with confirmation)
+- **Cancel a show** — drop it from Continue Watching without touching watch history, one click to
+  resume tracking later
 - **Ratings** — rate shows and movies, synced straight to Trakt
 - **Automatic sync** — connects via Trakt OAuth, syncs nightly through a self-gating cron job that's safe
   to run on a single shared-hosting cron slot, plus a manual "sync now"
 - **Multi-language UI** — English and German out of the box; new languages are just a new file under
   `frontend/src/lib/i18n/locales/`, auto-discovered, no code changes needed
 - **Light/dark mode** — follows your OS by default, with a manual override that's saved to your account
+- **Responsive** — usable one-handed on a phone, not just at a desk
 - **Deploy anywhere** — works at a domain root or any subfolder without touching code, single-user
   password login, no framework/Composer dependency on the backend
 
@@ -73,10 +78,18 @@ cp backend/config/config.example.php backend/config/config.php
 # fill in db credentials, trakt client_id/secret, tmdb api_key, app.password_hash
 # (generate a password hash with: php -r "echo password_hash('yourpassword', PASSWORD_BCRYPT), PHP_EOL;")
 
-# Database schema
+# Database schema -- fresh/empty database: import ONE file, backend/migrations/install_all.sql
+# (it's a straight concatenation of every 00N_*.sql migration below, in order). On shared hosting
+# without shell access, upload this same file via phpMyAdmin's "Import" tab -- no CLI needed.
+mysql -u root -p your_database < backend/migrations/install_all.sql
+
+# Already have an older install? Do NOT run install_all.sql (it re-creates every table from
+# scratch) -- apply only the individual migrations you're missing, in order:
 mysql -u root -p your_database < backend/migrations/001_init.sql
 mysql -u root -p your_database < backend/migrations/002_hardening.sql
 mysql -u root -p your_database < backend/migrations/003_theme.sql
+mysql -u root -p your_database < backend/migrations/004_watchlist.sql
+mysql -u root -p your_database < backend/migrations/005_season_structure.sql
 
 # Frontend dependencies
 cd frontend && npm install && cd ..

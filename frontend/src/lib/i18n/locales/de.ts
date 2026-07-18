@@ -4,13 +4,18 @@
  */
 export default {
   "nav.continueWatching": "Weiterschauen",
+  "nav.watchlist": "Watchlist",
   "nav.library": "Bibliothek",
   "nav.settings": "Einstellungen",
 
   "common.pageLoading": "Der Traktor rollt an…",
   "common.loadError": "Laden fehlgeschlagen.",
+  "common.actionError": "Aktion fehlgeschlagen.",
   "common.actionPending": "Der Traktor rollt…",
   "common.markingWatched": "Wird eingefahren…",
+  "common.cancel": "Abbrechen",
+  "common.confirm": "Bestätigen",
+  "common.scrollToTop": "Nach oben scrollen",
 
   "errors.wrongPassword": "Falsches Passwort.",
   "errors.rateLimited": "Zu viele Versuche — bitte kurz warten und erneut versuchen.",
@@ -21,6 +26,7 @@ export default {
   "errors.movieNotFound": "Film nicht gefunden.",
   "errors.unsupportedLanguage": "Nicht unterstützte Sprache.",
   "errors.invalidOauthState": "Ungültiger OAuth-Status — bitte Verbindung erneut herstellen.",
+  "errors.notFound": "Nicht gefunden.",
   "errors.generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
 
   "continueWatching.sortNew": "Neueste zuerst",
@@ -39,6 +45,7 @@ export default {
   "library.sort.year": "Jahr",
   "library.sort.rating": "Bewertung",
   "library.sort.added": "Zuletzt gesehen",
+  "library.statusCanceled": "Abgebrochen",
 
   "filter.searchPlaceholder": "Titel suchen…",
   "filter.defaultDirection": "Standard-Richtung",
@@ -52,6 +59,7 @@ export default {
   "filter.ratingFrom": "Bewertung ab",
   "filter.list": "Liste",
   "filter.reset": "Filter zurücksetzen",
+  "filter.toggleLabel": "Suche & Filter",
 
   "detail.minutes": "{n} Min",
   "detail.progressTitle": "Fortschritt",
@@ -60,13 +68,35 @@ export default {
   "detail.nextEpisode": "Nächste Episode: {code}",
   "detail.episodesHeading": "Episoden",
   "detail.posterAlt": "Poster von {title}",
+  "detail.cancel": "Serie abbrechen",
+  "detail.resume": "Wieder aufnehmen",
+  "detail.cancelSuccess": "Serie abgebrochen — aus Weiterschauen entfernt.",
+  "detail.resumeSuccess": "Wieder aufgenommen.",
+  "detail.hideError": "Serie konnte nicht abgebrochen werden.",
+  "detail.unhideError": "Konnte nicht wieder aufgenommen werden.",
+  "detail.moreActions": "Weitere Aktionen",
+  "detail.openInTrakt": "Auf trakt.tv öffnen",
+  "detail.openInTmdb": "Auf TMDB öffnen",
 
   "episodes.loadError": "Episoden konnten nicht geladen werden.",
+  "episodes.progressLoadError": "Watched-Status konnte nicht geladen werden.",
   "episodes.season": "Staffel {n}",
   "episodes.markSeasonWatched": "Staffel als gesehen markieren",
   "episodes.episodeFallback": "Episode {n}",
 
   "rating.rate": "Mit {n} bewerten",
+  "rating.error": "Bewertung konnte nicht gespeichert werden.",
+
+  "watchlist.empty": "Noch nichts auf der Watchlist.",
+  "watchlist.remove": "Von der Watchlist entfernen",
+  "watchlist.removeSuccess": "Von der Watchlist entfernt.",
+  "watchlist.removeError": "Konnte nicht von der Watchlist entfernt werden.",
+  "watchlist.removeConfirmTitle": "Von der Watchlist entfernen?",
+  "watchlist.removeConfirmBody": "„{title}“ wird von deiner Watchlist entfernt.",
+  "watchlist.add": "Zur Watchlist hinzufügen",
+  "watchlist.addSuccess": "Zur Watchlist hinzugefügt.",
+  "watchlist.addError": "Konnte nicht zur Watchlist hinzugefügt werden.",
+  "watchlist.sort.added": "Zuletzt hinzugefügt",
 
   "login.tagline": "Dein Traktor wartet in der Scheune — nur noch das Passwort, dann geht's aufs Feld.",
   "login.passwordPlaceholder": "Passwort",
@@ -76,6 +106,7 @@ export default {
   "login.footerGithub": "Quellcode auf GitHub",
 
   "settings.justConnected": "Trakt ist jetzt verbunden. Der Traktor kann losrollen.",
+  "settings.traktConnectFailed": "Verbindung mit Trakt fehlgeschlagen. Bitte versuch es erneut.",
   "settings.traktConnection": "Trakt-Verbindung",
   "settings.traktConnectionHint": "Verbindet den Traktor mit deinem Trakt.tv-Konto, damit Serien, Filme und Bewertungen synchronisiert werden können.",
   "settings.connected": "verbunden",
@@ -93,7 +124,7 @@ export default {
   "settings.sync": "Synchronisation",
   "settings.syncHint": "Lädt Serien, Filme, Bewertungen und Listen manuell von Trakt nach — normalerweise übernimmt das der nächtliche Sync automatisch.",
   "settings.syncNow": "Jetzt synchronisieren",
-  "settings.syncResult": "{shows} Serien, {movies} Filme, {ratings} Bewertungen, {lists} Listen synchronisiert.",
+  "settings.syncResult": "{shows} Serien, {movies} Filme, {ratings} Bewertungen, {lists} Listen, {watchlist} Watchlist-Einträge, {hiddenShows} abgebrochene Serien synchronisiert.",
   "settings.syncSkippedWarning": "{n} Serie(n) übersprungen (Metadaten-Abruf fehlgeschlagen) — später erneut synchronisieren.",
   "settings.syncError": "Sync fehlgeschlagen.",
   "settings.session": "Sitzung",

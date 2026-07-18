@@ -29,4 +29,32 @@ final class ProgressRepository
         );
         $stmt->execute($row);
     }
+
+    public function setHidden(int $traktShowId, bool $hidden): void
+    {
+        Database::pdo()->prepare('UPDATE show_progress SET hidden = :hidden WHERE trakt_show_id = :id')
+            ->execute(['hidden' => $hidden ? 1 : 0, 'id' => $traktShowId]);
+    }
+
+    /** Full reconciliation with Trakt's hidden-progress list (source of truth) -- unhides
+     *  everything first, then re-hides exactly the shows Trakt currently reports, so a show
+     *  unhidden directly on trakt.tv also un-hides here on the next sync.
+     *
+     * @param int[] $hiddenTraktIds
+     */
+    public function replaceHiddenFlags(array $hiddenTraktIds): void
+    {
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        $pdo->exec('UPDATE show_progress SET hidden = 0');
+
+        if ($hiddenTraktIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($hiddenTraktIds), '?'));
+            $pdo->prepare("UPDATE show_progress SET hidden = 1 WHERE trakt_show_id IN ({$placeholders})")
+                ->execute(array_values($hiddenTraktIds));
+        }
+
+        $pdo->commit();
+    }
 }
