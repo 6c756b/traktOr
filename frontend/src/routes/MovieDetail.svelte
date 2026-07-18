@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchMovieDetail, type MovieListItem } from "../lib/api/library";
+  import { fetchMovieDetail, markMovieWatched, type MovieListItem } from "../lib/api/library";
   import { apiErrorMessage } from "../lib/api/errors";
   import { formatAirDate } from "../lib/utils/time";
   import { translateGenre } from "../lib/utils/genres";
@@ -7,12 +7,14 @@
   import RatingWidget from "../lib/components/RatingWidget.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
   import { language } from "../lib/stores/settings";
+  import { toasts } from "../lib/stores/toast";
   import { t } from "../lib/i18n";
 
   let { id }: { id: string } = $props();
 
   let movie = $state<MovieListItem | null>(null);
   let error = $state("");
+  let markWatchedPending = $state(false);
 
   async function load(movieId: string) {
     movie = null;
@@ -21,6 +23,20 @@
       movie = await fetchMovieDetail(Number(movieId));
     } catch (e) {
       error = apiErrorMessage(e, "common.loadError", $t);
+    }
+  }
+
+  async function handleMarkWatched() {
+    if (!movie) return;
+    markWatchedPending = true;
+    try {
+      await markMovieWatched(movie.id);
+      movie.watchedAt = new Date().toISOString();
+      toasts.push($t("continueWatching.markWatchedSuccess"), "success");
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "detail.markWatchedError", $t), "error");
+    } finally {
+      markWatchedPending = false;
     }
   }
 
@@ -55,7 +71,16 @@
         </p>
         <p>{movie.overview}</p>
 
-        <RatingWidget itemType="movie" id={movie.id} bind:rating={movie.rating} />
+        <div class="row gap-s wrap">
+          <RatingWidget itemType="movie" id={movie.id} bind:rating={movie.rating} />
+          {#if movie.watchedAt}
+            <span class="badge">{$t("detail.watched")}</span>
+          {:else}
+            <button type="button" class="btn btn-secondary btn-sm" disabled={markWatchedPending} onclick={handleMarkWatched}>
+              {$t("detail.markWatched")}
+            </button>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}

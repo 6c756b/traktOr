@@ -17,7 +17,7 @@ final class MovieRepository
     private const SELECT = "SELECT
             m.trakt_id, m.slug, m.title, m.year, m.overview, m.status, m.genres,
             m.poster_url, m.backdrop_url, m.runtime, m.released, m.certification, m.translations,
-            r.rating
+            m.watched_at, r.rating
         FROM movies m
         LEFT JOIN ratings r ON r.item_type = 'movie' AND r.trakt_id = m.trakt_id";
 
@@ -41,6 +41,27 @@ final class MovieRepository
                 watched_at = COALESCE(VALUES(watched_at), watched_at)'
         );
         $stmt->execute($row);
+    }
+
+    /** @param int[] $traktIds @return int[] the subset that's marked watched */
+    public function watchedTraktIds(array $traktIds): array
+    {
+        if ($traktIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($traktIds), '?'));
+        $stmt = Database::pdo()->prepare(
+            "SELECT trakt_id FROM movies WHERE watched_at IS NOT NULL AND trakt_id IN ({$placeholders})"
+        );
+        $stmt->execute(array_values($traktIds));
+        return array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
+    public function markWatched(int $traktId, string $watchedAtIso): void
+    {
+        Database::pdo()->prepare(
+            'UPDATE movies SET watched_at = :watched_at WHERE trakt_id = :id'
+        )->execute(['watched_at' => $watchedAtIso, 'id' => $traktId]);
     }
 
     public function updateImages(int $traktId, ?string $posterUrl, ?string $backdropUrl): void
@@ -144,6 +165,7 @@ final class MovieRepository
             'released' => $row['released'],
             'certification' => $row['certification'],
             'rating' => $row['rating'] !== null ? (int) $row['rating'] : null,
+            'watchedAt' => $row['watched_at'],
         ];
     }
 }

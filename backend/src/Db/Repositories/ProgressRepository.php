@@ -30,6 +30,20 @@ final class ProgressRepository
         $stmt->execute($row);
     }
 
+    /** @param int[] $traktShowIds @return int[] the subset with any watched progress */
+    public function watchedShowIds(array $traktShowIds): array
+    {
+        if ($traktShowIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($traktShowIds), '?'));
+        $stmt = Database::pdo()->prepare(
+            "SELECT trakt_show_id FROM show_progress WHERE completed > 0 AND trakt_show_id IN ({$placeholders})"
+        );
+        $stmt->execute(array_values($traktShowIds));
+        return array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
     public function setHidden(int $traktShowId, bool $hidden): void
     {
         Database::pdo()->prepare('UPDATE show_progress SET hidden = :hidden WHERE trakt_show_id = :id')

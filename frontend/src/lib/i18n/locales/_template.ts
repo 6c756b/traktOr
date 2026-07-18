@@ -19,6 +19,7 @@ export default {
   "nav.continueWatching": "Continue Watching",
   "nav.watchlist": "Watchlist",
   "nav.library": "Library",
+  "nav.search": "Search",
   "nav.settings": "Settings",
 
   "common.pageLoading": "The tractor is rolling in…",
@@ -86,6 +87,9 @@ export default {
   "detail.moreActions": "More actions",
   "detail.openInTrakt": "Open on trakt.tv",
   "detail.openInTmdb": "Open on TMDB",
+  "detail.markWatched": "Mark as watched",
+  "detail.markWatchedError": "Couldn't mark as watched.",
+  "detail.watched": "Watched",
 
   "episodes.loadError": "Couldn't load episodes.",
   "episodes.progressLoadError": "Couldn't load watched status.",
@@ -101,6 +105,15 @@ export default {
   "watchlist.removeSuccess": "Removed from watchlist.",
   "watchlist.removeError": "Couldn't remove from watchlist.",
   "watchlist.sort.added": "Recently added",
+
+  "search.title": "Search",
+  "search.placeholder": "Search for shows or movies…",
+  "search.empty": "Start typing to search trakt.tv.",
+  "search.noResults": "No results for “{query}”.",
+  "search.loadError": "Search failed.",
+  "search.onWatchlist": "On the watchlist",
+  "search.watchEpisodeOne": "Watch episode 1",
+  "search.alreadyWatched": "Already watched",
 
   "login.tagline": "Your tractor is waiting in the barn — just the password, then off to the field.",
   "login.passwordPlaceholder": "Password",

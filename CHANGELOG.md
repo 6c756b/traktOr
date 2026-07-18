@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+## [0.3.0] - 2026-07-18
 
-- Add new shows/movies directly from TraktOr (Trakt search + add to library), instead of  only tracking what's already in your Trakt account
+### Added
+
+- Search — find any show or movie on trakt.tv from inside TraktOr and either add it to the watchlist or start watching immediately (marks episode 1 watched for shows, marks the movie watched for films), even for titles never synced from your Trakt account before
+- "Mark as watched" action on the movie detail page — previously the only way a movie's watched status could change was through a full Trakt sync
+- Search results already fully watched show an "Already watched" badge instead of action buttons, and use a localized title/description matching your selected UI language where a TMDB translation is available
+
+### Fixed
+
+- Adding an item to the watchlist that wasn't already synced from Trakt (e.g. a fresh search result) wrote a watchlist entry with no matching show/movie data behind it, leaving it undetailable — it's now synced first
 
 ## [0.2.0] - 2026-07-18
 

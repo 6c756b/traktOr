@@ -4,7 +4,7 @@
   <p><strong>A lightweight, self-hosted companion for your Trakt.tv library.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-0.2.0-166534" alt="Version 0.2.0" />
+    <img src="https://img.shields.io/badge/version-0.3.0-166534" alt="Version 0.3.0" />
     <img src="https://img.shields.io/badge/license-MIT-166534" alt="MIT License" />
     <img src="https://img.shields.io/badge/i18n-EN%20%7C%20DE-166534" alt="Available in English and German" />
   </p>
@@ -28,6 +28,8 @@ Trakt.tv's own web UI is cluttered and slow to get a straight answer out of: *wh
 - **Library** — search and filter your shows and movies by genre, status, year and rating
 - **Watchlist** — tracks Trakt's watchlist independently from watch history, with the same
   search/filter/sort tools as Library and one-click add/remove (with confirmation)
+- **Search** — find any show or movie on trakt.tv, even ones brand new to your account, and either
+  add it to the watchlist or start watching right away
 - **Cancel a show** — drop it from Continue Watching without touching watch history, one click to
   resume tracking later
 - **Ratings** — rate shows and movies, synced straight to Trakt

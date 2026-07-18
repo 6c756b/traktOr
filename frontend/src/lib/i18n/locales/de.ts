@@ -6,6 +6,7 @@ export default {
   "nav.continueWatching": "Weiterschauen",
   "nav.watchlist": "Watchlist",
   "nav.library": "Bibliothek",
+  "nav.search": "Suche",
   "nav.settings": "Einstellungen",
 
   "common.pageLoading": "Der Traktor rollt an…",
@@ -77,6 +78,9 @@ export default {
   "detail.moreActions": "Weitere Aktionen",
   "detail.openInTrakt": "Auf trakt.tv öffnen",
   "detail.openInTmdb": "Auf TMDB öffnen",
+  "detail.markWatched": "Als gesehen markieren",
+  "detail.markWatchedError": "Konnte nicht als gesehen markiert werden.",
+  "detail.watched": "Gesehen",
 
   "episodes.loadError": "Episoden konnten nicht geladen werden.",
   "episodes.progressLoadError": "Watched-Status konnte nicht geladen werden.",
@@ -97,6 +101,15 @@ export default {
   "watchlist.addSuccess": "Zur Watchlist hinzugefügt.",
   "watchlist.addError": "Konnte nicht zur Watchlist hinzugefügt werden.",
   "watchlist.sort.added": "Zuletzt hinzugefügt",
+
+  "search.title": "Suche",
+  "search.placeholder": "Nach Serien oder Filmen suchen…",
+  "search.empty": "Tippe, um trakt.tv zu durchsuchen.",
+  "search.noResults": "Keine Treffer für „{query}“.",
+  "search.loadError": "Suche fehlgeschlagen.",
+  "search.onWatchlist": "Auf der Watchlist",
+  "search.watchEpisodeOne": "Episode 1 ansehen",
+  "search.alreadyWatched": "Bereits gesehen",
 
   "login.tagline": "Dein Traktor wartet in der Scheune — nur noch das Passwort, dann geht's aufs Feld.",
   "login.passwordPlaceholder": "Passwort",

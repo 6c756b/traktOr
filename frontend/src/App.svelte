@@ -8,6 +8,7 @@
   import { t } from "./lib/i18n";
   import ContinueWatching from "./routes/ContinueWatching.svelte";
   import Watchlist from "./routes/Watchlist.svelte";
+  import Search from "./routes/Search.svelte";
   import Library from "./routes/Library.svelte";
   import ShowDetail from "./routes/ShowDetail.svelte";
   import MovieDetail from "./routes/MovieDetail.svelte";
@@ -20,6 +21,7 @@
     { href: "/", key: "nav.continueWatching", icon: "play" },
     { href: "/watchlist", key: "nav.watchlist", icon: "bookmark" },
     { href: "/library", key: "nav.library", icon: "grid" },
+    { href: "/search", key: "nav.search", icon: "search" },
     { href: "/settings", key: "nav.settings", icon: "sliders" },
   ];
 
@@ -91,6 +93,9 @@
                 <rect x="13.5" y="3.5" width="7" height="7" rx="1" />
                 <rect x="3.5" y="13.5" width="7" height="7" rx="1" />
                 <rect x="13.5" y="13.5" width="7" height="7" rx="1" />
+              {:else if item.icon === "search"}
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.5" y1="16.5" x2="21" y2="21" />
               {:else}
                 <line x1="4" y1="7" x2="20" y2="7" />
                 <circle cx="9" cy="7" r="2" fill="var(--bg)" />
@@ -112,6 +117,8 @@
       <Watchlist />
     {:else if $currentPath === "/library"}
       <Library />
+    {:else if $currentPath === "/search"}
+      <Search />
     {:else if showId}
       <ShowDetail id={showId.id} />
     {:else if movieId}

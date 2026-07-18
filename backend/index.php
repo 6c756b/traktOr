@@ -300,6 +300,23 @@ $router->post('/watchlist', function (Request $request) {
     Response::noContent();
 });
 
+$router->get('/search', function (Request $request) {
+    AppAuth::requireAuth();
+    $query = trim($request->query['q'] ?? '');
+    Response::json($query === '' ? [] : (new SyncService())->searchTrakt($query));
+});
+
+$router->post('/watch/movie', function (Request $request) {
+    AppAuth::requireAuth();
+    $movieId = (int) ($request->json()['movieId'] ?? 0);
+    if ($movieId <= 0) {
+        Response::error(400, 'missing_fields');
+    }
+
+    (new SyncService())->markMovieWatched($movieId);
+    Response::noContent();
+});
+
 $router->get('/lists', function () {
     AppAuth::requireAuth();
     Response::json((new ListRepository())->all());

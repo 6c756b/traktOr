@@ -41,6 +41,7 @@ export type MovieListItem = {
   released: string | null;
   certification: string | null;
   rating: number | null;
+  watchedAt: string | null;
 };
 
 export type LibraryFilters = {
@@ -96,6 +97,10 @@ export function unhideShow(id: number): Promise<void> {
 
 export function fetchMovieDetail(id: number): Promise<MovieListItem> {
   return api.get<MovieListItem>(`/movies/${id}`);
+}
+
+export function markMovieWatched(movieId: number): Promise<void> {
+  return api.post("/watch/movie", { movieId });
 }
 
 export function fetchGenres(type: "shows" | "movies", watchlistOnly = false): Promise<string[]> {
