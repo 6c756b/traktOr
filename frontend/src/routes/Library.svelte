@@ -9,6 +9,7 @@
   import FilterBar from "../lib/components/FilterBar.svelte";
   import LibraryCard from "../lib/components/LibraryCard.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
+  import { showCollectionStatus, movieCollectionStatus } from "../lib/utils/collectionStatus";
   import { t } from "../lib/i18n";
 
   type LibraryType = "shows" | "movies";
@@ -24,6 +25,7 @@
     if (params.get("rating_min")) filters.ratingMin = Number(params.get("rating_min"));
     if (params.get("list_id")) filters.listId = Number(params.get("list_id"));
     if (params.get("search")) filters.search = params.get("search")!;
+    if (params.get("collection")) filters.collectionOnly = true;
     return { type, filters };
   }
 
@@ -78,6 +80,7 @@
     if (filters.ratingMin) params.set("rating_min", String(filters.ratingMin));
     if (filters.listId) params.set("list_id", String(filters.listId));
     if (filters.search) params.set("search", filters.search);
+    if (filters.collectionOnly) params.set("collection", "1");
     if (filters.sort && filters.sort !== "title") params.set("sort", filters.sort);
     if (filters.dir) params.set("dir", filters.dir);
     navigate(`/library?${params.toString()}`, true);
@@ -142,6 +145,7 @@
             rating={item.rating}
             status={item.status}
             progress={(item as ShowListItem).progress}
+            collectionStatus={showCollectionStatus(item as ShowListItem)}
           />
         {:else}
           <LibraryCard
@@ -152,6 +156,7 @@
             genres={item.genres}
             rating={item.rating}
             status={item.status}
+            collectionStatus={movieCollectionStatus(item as MovieListItem)}
           />
         {/if}
       {/each}

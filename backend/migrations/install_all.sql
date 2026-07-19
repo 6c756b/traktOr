@@ -217,3 +217,39 @@ UPDATE movies SET watched_at = updated_at WHERE watched_at IS NULL;
 -- "airedEpisodes" is a snapshot of Trakt's live progress "aired" count at build time, used as
 -- a cheap staleness check in SyncService::getProgress() to detect newly aired episodes.
 ALTER TABLE shows ADD COLUMN season_structure JSON NULL AFTER episode_translations;
+
+-- ---------------------------------------------------------------------------
+-- 006_collection.sql
+-- ---------------------------------------------------------------------------
+
+-- Collection: items the user owns (physically/digitally), tracked via Trakt's native
+-- Collection concept (GET/POST /sync/collection) -- distinct from Watchlist ("to watch")
+-- and watched_at/show_progress ("have watched"). Movies use season_number = 0 as a
+-- "whole item" sentinel (MySQL PK columns can't be NULL); shows are tracked per season
+-- since this app only offers a whole-season toggle, mirroring markSeasonWatched()'s
+-- season-shorthand precedent. No FK to shows/movies, same reasoning as watchlist_items:
+-- rows are written in the same sync pass that upserts the referenced show/movie.
+CREATE TABLE collection_items (
+    item_type ENUM('show', 'movie') NOT NULL,
+    item_trakt_id INT UNSIGNED NOT NULL,
+    season_number SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    collected_at DATETIME NOT NULL,
+    PRIMARY KEY (item_type, item_trakt_id, season_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- 007_notes.sql
+-- ---------------------------------------------------------------------------
+
+-- Private local notes on movies/shows -- pure local data, deliberately never synced to/from
+-- Trakt (Trakt's own "Notes" feature is VIP-only, which this app's user doesn't have/want).
+-- Structurally mirrors `ratings` (same item_type/trakt_id PK shape), but unlike every other
+-- table in this schema, nothing ever writes here via TraktClient -- this is the first
+-- purely-local, non-synced per-item table.
+CREATE TABLE notes (
+    item_type ENUM('show', 'movie') NOT NULL,
+    trakt_id INT UNSIGNED NOT NULL,
+    note TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (item_type, trakt_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

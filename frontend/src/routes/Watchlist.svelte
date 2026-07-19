@@ -12,6 +12,7 @@
   import LibraryCard from "../lib/components/LibraryCard.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
   import ConfirmDialog from "../lib/components/ConfirmDialog.svelte";
+  import { showCollectionStatus, movieCollectionStatus } from "../lib/utils/collectionStatus";
   import { t } from "../lib/i18n";
 
   type WatchlistType = "shows" | "movies";
@@ -30,6 +31,7 @@
     if (params.get("year_max")) filters.yearMax = Number(params.get("year_max"));
     if (params.get("rating_min")) filters.ratingMin = Number(params.get("rating_min"));
     if (params.get("search")) filters.search = params.get("search")!;
+    if (params.get("collection")) filters.collectionOnly = true;
     return { type, filters };
   }
 
@@ -75,6 +77,7 @@
     if (filters.yearMax) params.set("year_max", String(filters.yearMax));
     if (filters.ratingMin) params.set("rating_min", String(filters.ratingMin));
     if (filters.search) params.set("search", filters.search);
+    if (filters.collectionOnly) params.set("collection", "1");
     if (filters.sort && filters.sort !== "listed") params.set("sort", filters.sort);
     if (filters.dir) params.set("dir", filters.dir);
     navigate(`/watchlist?${params.toString()}`, true);
@@ -162,6 +165,8 @@
             rating={item.rating}
             status={item.status}
             progress={(item as ShowListItem).progress}
+            showProgress={false}
+            collectionStatus={showCollectionStatus(item as ShowListItem)}
             onRemove={() => handleRemove("show", item.id, item.title)}
           />
         {:else}
@@ -173,6 +178,7 @@
             genres={item.genres}
             rating={item.rating}
             status={item.status}
+            collectionStatus={movieCollectionStatus(item as MovieListItem)}
             onRemove={() => handleRemove("movie", item.id, item.title)}
           />
         {/if}

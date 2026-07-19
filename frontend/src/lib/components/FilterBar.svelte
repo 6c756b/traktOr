@@ -153,6 +153,15 @@
       </label>
     {/if}
 
+    <label class="row gap-xs text-muted text-sm">
+      <input
+        type="checkbox"
+        checked={filters.collectionOnly ?? false}
+        onchange={(e) => (filters.collectionOnly = e.currentTarget.checked || undefined)}
+      />
+      {$t("library.collectionOnly")}
+    </label>
+
     <button class="btn btn-secondary" onclick={resetFilters}>{$t("filter.reset")}</button>
   </div>
   {/if}

@@ -98,7 +98,11 @@
   }
 
   .poster {
-    position: relative;
+    /* No position here: it must stay a plain in-flow (non-positioned) box, otherwise it
+       paints above the earlier-in-DOM absolute-positioned .poster-badge sibling instead of
+       below it (CSS stacking order among position:auto siblings follows tree order, not
+       source-order intuition). */
+    width: auto;
     aspect-ratio: 2 / 3;
     background: var(--border);
   }
@@ -124,7 +128,10 @@
     background: var(--primary);
   }
 
-  @media (max-width: 640px) {
+  /* 455px, not the usual 640px breakpoint: the shared .grid (minmax(200px, 1fr), 24px gap,
+     16px page padding) only drops to a single column below ~456px viewport width. Above that
+     it stays 2-column with ~200-292px card width, too narrow for poster+text side by side. */
+  @media (max-width: 455px) {
     .show-card-link {
       flex-direction: row;
       align-items: stretch;

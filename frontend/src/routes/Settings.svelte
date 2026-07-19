@@ -3,9 +3,11 @@
   import { session } from "../lib/stores/session";
   import { logout } from "../lib/api/auth";
   import { triggerFullSync, type SyncResult } from "../lib/api/sync";
+  import { fetchTraktUser, type TraktUser } from "../lib/api/trakt";
   import { apiErrorMessage } from "../lib/api/errors";
   import { language, availableLanguages, effectiveTheme } from "../lib/stores/settings";
   import { updateLanguage } from "../lib/api/settings";
+  import { formatAirDate } from "../lib/utils/time";
   import { t } from "../lib/i18n";
   import ThemeSwitch from "../lib/components/ThemeSwitch.svelte";
 
@@ -19,6 +21,24 @@
 
   let languageSaving = $state(false);
   let languageError = $state("");
+
+  let traktUser = $state<TraktUser | null>(null);
+  let traktUserFetched = false;
+
+  // $effect instead of onMount: right after the OAuth redirect (?connected=1), App.svelte's
+  // fetchSession() is still in flight when this component mounts, so traktConnected briefly
+  // reads false. Reacting to the store update once it flips true catches that case too.
+  $effect(() => {
+    if ($session.traktConnected && !traktUserFetched) {
+      traktUserFetched = true;
+      fetchTraktUser()
+        .then((u) => (traktUser = u))
+        .catch(() => {
+          // Purely informational display -- a failed fetch just leaves the plain
+          // "connected" badge shown instead of blocking or erroring out the page.
+        });
+    }
+  });
 
   async function handleLogout() {
     try {
@@ -86,7 +106,24 @@
       <h2>{$t("settings.traktConnection")}</h2>
       <p class="text-muted text-sm">{$t("settings.traktConnectionHint")}</p>
       {#if $session.traktConnected}
-        <p class="row gap-s"><span class="badge">{$t("settings.connected")}</span></p>
+        {#if traktUser}
+          <div class="row gap-m">
+            {#if traktUser.avatar}
+              <img class="trakt-avatar" src={traktUser.avatar} alt="" />
+            {/if}
+            <div class="stack gap-xs">
+              <span>{traktUser.name || traktUser.username}</span>
+              <span class="text-muted text-sm">@{traktUser.username}</span>
+              {#if traktUser.joinedAt}
+                <span class="text-muted text-sm">
+                  {$t("settings.memberSince", { date: formatAirDate(traktUser.joinedAt, $language) })}
+                </span>
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <p class="row gap-s"><span class="badge">{$t("settings.connected")}</span></p>
+        {/if}
       {:else}
         <p class="text-muted">{$t("settings.notConnected")}</p>
         <a class="btn btn-primary align-start" href="{import.meta.env.BASE_URL}api/auth/trakt/start">
@@ -174,6 +211,14 @@
 <style>
   .settings-version {
     text-align: center;
+  }
+
+  .trakt-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
   }
 
   .card-highlight {

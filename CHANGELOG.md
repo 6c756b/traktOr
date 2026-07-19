@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-19
+
+### Added
+
+- Discover tab on the Search page — Recommended Shows, Recommended Movies, Trending Shows and Popular Movies, shown when the search field is empty and cached per tab for the session
+- "More like this" section on show and movie detail pages, backed by Trakt's related-items data
+- Show/movie detail pages and Search/Discover results now work for titles never synced from your Trakt account before — details are fetched live on demand, and starting to watch a previewed title syncs it automatically instead of requiring a prior full sync
+- Marking an episode or season as watched that skips over earlier unwatched episodes now asks whether those should be marked watched too, instead of silently leaving gaps in watch history
+- Search and Discover result cards link through to the show/movie detail page and reflect actual watchlist status instead of always showing "not on watchlist"
+- Watchlist toggle on the movie detail page (shows already had one)
+- Connected Trakt account info (avatar, name, username, member since) shown in Settings under the connection status
+- Trakt Collection tracking — mark movies and individual show seasons as owned, with toggles on the movie detail page and in the episode list, synced to Trakt's native Collection feature
+- "In collection" badge on Library/Watchlist cards and a "Collection only" filter; the badge turns orange once you've caught up on watching a show but a newer season isn't in your collection yet
+- Private per-title notes, visible only to you and never synced to Trakt (Trakt's own Notes feature requires VIP) — edited via a "…" menu on the movie and show detail pages, shown under the title when set
+
+### Changed
+
+- "More like this" section on detail pages now reads "Similar movies"/"Similar shows" and is visually separated from the rest of the page instead of running straight into it
+- Season "mark watched"/"collection" controls in the episode list are compact, colored, icon-labeled buttons instead of full-width plain ones, and the "mark watched" button hides once a season is already fully watched
+
+### Fixed
+
+- Poster badges (e.g. "Already watched") on Library and Show cards were briefly covered by the poster's own hover effect due to a CSS stacking-context issue
+- Library/Watchlist cards switched to a squeezed side-by-side poster+text layout before the grid had actually dropped to a single column, leaving titles unreadable in a narrow range of screen widths
+
 ## [0.3.0] - 2026-07-18
 
 ### Added

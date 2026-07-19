@@ -25,3 +25,9 @@ export function unwatchEpisode(showId: number, season: number, number: number) {
 export function watchSeason(showId: number, season: number) {
   return api.post("/watch/season", { showId, season });
 }
+
+export type EpisodeRef = { season: number; number: number };
+
+export function watchEpisodes(showId: number, episodes: EpisodeRef[]) {
+  return api.post("/watch/episodes", { showId, episodes });
+}

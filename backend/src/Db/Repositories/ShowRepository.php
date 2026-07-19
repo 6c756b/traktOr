@@ -23,7 +23,10 @@ final class ShowRepository
             sp.last_episode_season, sp.last_episode_number,
             sp.next_episode_season, sp.next_episode_number, sp.next_episode_title, sp.next_episode_first_aired,
             wl.listed_at AS watchlist_listed_at,
-            r.rating
+            r.rating,
+            (SELECT GROUP_CONCAT(season_number) FROM collection_items
+             WHERE item_type = 'show' AND item_trakt_id = s.trakt_id) AS collected_seasons,
+            n.note
         FROM shows s";
 
     // findOne() always uses this -- a show must be reachable by its detail page regardless
@@ -31,17 +34,22 @@ final class ShowRepository
     // watchlist_items is always LEFT JOINed (like ratings) so "is this on my watchlist" is
     // generically available, not just as a filter -- search()'s watchlist_only mode below
     // turns it into a filter via a WHERE condition instead of a second, redundant JOIN.
+    // collected_seasons is a correlated subquery in SELECT_COLUMNS above, not a JOIN --
+    // a show can have several collected seasons (1:many), and a plain JOIN would duplicate
+    // the show row once per collected season.
     private const JOIN_LEFT = "
         LEFT JOIN show_progress sp ON sp.trakt_show_id = s.trakt_id
         LEFT JOIN watchlist_items wl ON wl.item_type = 'show' AND wl.item_trakt_id = s.trakt_id
-        LEFT JOIN ratings r ON r.item_type = 'show' AND r.trakt_id = s.trakt_id";
+        LEFT JOIN ratings r ON r.item_type = 'show' AND r.trakt_id = s.trakt_id
+        LEFT JOIN notes n ON n.item_type = 'show' AND n.trakt_id = s.trakt_id";
 
     // search() uses this by default (the library listing) -- "watched" is defined as
     // "has a show_progress row", which is only ever created by syncWatchedShows()/syncShow().
     private const JOIN_INNER = "
         JOIN show_progress sp ON sp.trakt_show_id = s.trakt_id
         LEFT JOIN watchlist_items wl ON wl.item_type = 'show' AND wl.item_trakt_id = s.trakt_id
-        LEFT JOIN ratings r ON r.item_type = 'show' AND r.trakt_id = s.trakt_id";
+        LEFT JOIN ratings r ON r.item_type = 'show' AND r.trakt_id = s.trakt_id
+        LEFT JOIN notes n ON n.item_type = 'show' AND n.trakt_id = s.trakt_id";
 
     public function upsert(array $row): void
     {
@@ -156,7 +164,10 @@ final class ShowRepository
     {
         [$where, $params] = FilterQueryBuilder::build($filters, 's');
         $watchlistOnly = !empty($filters['watchlist_only']);
-        $joins = $watchlistOnly ? self::JOIN_LEFT : self::JOIN_INNER;
+        $collectionOnly = !empty($filters['collection_only']);
+        // collection_only also needs JOIN_LEFT: a collected-but-never-watched show has no
+        // show_progress row, so JOIN_INNER would silently exclude it.
+        $joins = ($watchlistOnly || $collectionOnly) ? self::JOIN_LEFT : self::JOIN_INNER;
 
         if (isset($filters['rating_min'])) {
             $where[] = 'r.rating >= :rating_min';
@@ -171,6 +182,11 @@ final class ShowRepository
 
         if ($watchlistOnly) {
             $where[] = 'wl.listed_at IS NOT NULL';
+        }
+
+        if ($collectionOnly) {
+            // EXISTS, not a join, to avoid duplicating the show row for multi-season-collected shows.
+            $where[] = "EXISTS (SELECT 1 FROM collection_items ci WHERE ci.item_type = 'show' AND ci.item_trakt_id = s.trakt_id)";
         }
 
         // 'listed' only resolves to a real column when watchlist_items is actually joined --
@@ -197,11 +213,13 @@ final class ShowRepository
     }
 
     /** @return string[] */
-    public function distinctGenres(bool $watchlistOnly = false): array
+    public function distinctGenres(bool $watchlistOnly = false, bool $collectionOnly = false): array
     {
-        $sql = $watchlistOnly
-            ? "SELECT s.genres FROM shows s JOIN watchlist_items wi ON wi.item_type = 'show' AND wi.item_trakt_id = s.trakt_id"
-            : 'SELECT s.genres FROM shows s JOIN show_progress sp ON sp.trakt_show_id = s.trakt_id';
+        $sql = match (true) {
+            $watchlistOnly => "SELECT s.genres FROM shows s JOIN watchlist_items wi ON wi.item_type = 'show' AND wi.item_trakt_id = s.trakt_id",
+            $collectionOnly => "SELECT DISTINCT s.genres FROM shows s JOIN collection_items ci ON ci.item_type = 'show' AND ci.item_trakt_id = s.trakt_id",
+            default => 'SELECT s.genres FROM shows s JOIN show_progress sp ON sp.trakt_show_id = s.trakt_id',
+        };
         $raw = Database::pdo()->query($sql)->fetchAll(\PDO::FETCH_COLUMN);
         return FilterQueryBuilder::distinctGenres($raw);
     }
@@ -228,6 +246,9 @@ final class ShowRepository
             'rating' => $row['rating'] !== null ? (int) $row['rating'] : null,
             'tmdbId' => $row['tmdb_id'] !== null ? (int) $row['tmdb_id'] : null,
             'onWatchlist' => $row['watchlist_listed_at'] !== null,
+            'collectedSeasons' => $row['collected_seasons'] ? array_map('intval', explode(',', $row['collected_seasons'])) : [],
+            'note' => $row['note'],
+            'inLibrary' => true,
             'progress' => $row['aired'] !== null ? [
                 'aired' => (int) $row['aired'],
                 'completed' => (int) $row['completed'],

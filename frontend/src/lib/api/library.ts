@@ -17,6 +17,9 @@ export type ShowListItem = {
   rating: number | null;
   tmdbId: number | null;
   onWatchlist: boolean;
+  collectedSeasons: number[];
+  note: string | null;
+  inLibrary: boolean;
   progress: {
     aired: number;
     completed: number;
@@ -42,6 +45,10 @@ export type MovieListItem = {
   certification: string | null;
   rating: number | null;
   watchedAt: string | null;
+  onWatchlist: boolean;
+  inCollection: boolean;
+  note: string | null;
+  inLibrary: boolean;
 };
 
 export type LibraryFilters = {
@@ -55,6 +62,7 @@ export type LibraryFilters = {
   sort?: string;
   dir?: "asc" | "desc" | "";
   watchlistOnly?: boolean;
+  collectionOnly?: boolean;
 };
 
 export type TraktList = { id: number; name: string; slug: string };
@@ -71,6 +79,7 @@ function toQuery(filters: LibraryFilters): string {
   if (filters.sort) params.set("sort", filters.sort);
   if (filters.dir) params.set("dir", filters.dir);
   if (filters.watchlistOnly) params.set("watchlist", "1");
+  if (filters.collectionOnly) params.set("collection", "1");
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
@@ -103,8 +112,10 @@ export function markMovieWatched(movieId: number): Promise<void> {
   return api.post("/watch/movie", { movieId });
 }
 
-export function fetchGenres(type: "shows" | "movies", watchlistOnly = false): Promise<string[]> {
-  return api.get<string[]>(`/genres?type=${type}${watchlistOnly ? "&watchlist=1" : ""}`);
+export function fetchGenres(type: "shows" | "movies", watchlistOnly = false, collectionOnly = false): Promise<string[]> {
+  return api.get<string[]>(
+    `/genres?type=${type}${watchlistOnly ? "&watchlist=1" : ""}${collectionOnly ? "&collection=1" : ""}`
+  );
 }
 
 export function fetchLists(): Promise<TraktList[]> {

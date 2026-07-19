@@ -1,12 +1,16 @@
 <script lang="ts">
   import { fetchShowDetail, hideShow, unhideShow, type ShowListItem } from "../lib/api/library";
   import { removeFromWatchlist, addToWatchlist } from "../lib/api/watchlist";
+  import { watchEpisode } from "../lib/api/episodes";
+  import { fetchRelatedShows, type SearchResult } from "../lib/api/search";
   import { apiErrorMessage } from "../lib/api/errors";
   import { formatAirDate, formatRelativeTime } from "../lib/utils/time";
   import { translateGenre } from "../lib/utils/genres";
   import { translateStatus } from "../lib/utils/status";
   import RatingWidget from "../lib/components/RatingWidget.svelte";
+  import NoteModal from "../lib/components/NoteModal.svelte";
   import EpisodeList from "../lib/components/EpisodeList.svelte";
+  import SearchResultCard from "../lib/components/SearchResultCard.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
   import ConfirmDialog from "../lib/components/ConfirmDialog.svelte";
   import { language } from "../lib/stores/settings";
@@ -20,15 +24,26 @@
   let hiddenPending = $state(false);
   let menuOpen = $state(false);
   let menuRef: HTMLDivElement | undefined = $state();
+  let noteModalOpen = $state(false);
   let removeConfirmOpen = $state(false);
+  let watchFirstEpisodePending = $state(false);
+  // "More like this" -- purely supplementary, a failed/empty fetch just leaves it hidden
+  // instead of surfacing its own error state.
+  let related = $state<SearchResult[] | null>(null);
 
   async function load(showId: string) {
     show = null;
     error = "";
+    related = null;
     try {
       show = await fetchShowDetail(Number(showId));
     } catch (e) {
       error = apiErrorMessage(e, "common.loadError", $t);
+    }
+    try {
+      related = await fetchRelatedShows(Number(showId));
+    } catch {
+      related = null;
     }
   }
 
@@ -92,6 +107,22 @@
       toasts.push($t("watchlist.addSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "watchlist.addError", $t), "error");
+    }
+  }
+
+  /** Preview shows (not yet in the local library) don't have an episode list to pick from
+   *  yet -- this both persists the show (via the existing markEpisodeWatched()-triggered
+   *  sync) and starts it, then reloads so `inLibrary` flips true and EpisodeList mounts. */
+  async function handleWatchFirstEpisode() {
+    if (!show) return;
+    watchFirstEpisodePending = true;
+    try {
+      await watchEpisode(show.id, 1, 1);
+      await load(id);
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
+    } finally {
+      watchFirstEpisodePending = false;
     }
   }
 
@@ -161,6 +192,13 @@
                     {$t("detail.openInTmdb")}
                   </a>
                 {/if}
+                <button
+                  class="menu-item"
+                  role="menuitem"
+                  onclick={() => { menuOpen = false; noteModalOpen = true; }}
+                >
+                  {$t("notes.menuLabel")}
+                </button>
                 {#if show.progress}
                   <button
                     class="menu-item"
@@ -192,6 +230,7 @@
             {/if}
           </div>
         </div>
+        {#if show.note}<p class="text-muted note-preview">{show.note}</p>{/if}
         <p class="row gap-xs wrap">
           {#if show.status}<span class="badge">{translateStatus(show.status, $language)}</span>{/if}
           {#if show.network}<span class="badge">{show.network}</span>{/if}
@@ -229,10 +268,35 @@
       </div>
     </div>
 
-    <div class="stack gap-s">
-      <h2 class="m-0 card-subtitle">{$t("detail.episodesHeading")}</h2>
-      <EpisodeList showId={show.id} onWatchChange={refreshProgress} />
-    </div>
+    {#if show.inLibrary}
+      <div class="stack gap-s">
+        <h2 class="m-0 card-subtitle">{$t("detail.episodesHeading")}</h2>
+        <EpisodeList showId={show.id} collectedSeasons={show.collectedSeasons} onWatchChange={refreshProgress} />
+      </div>
+    {:else}
+      <div class="card stack gap-s preview-hint">
+        <p class="text-muted m-0">{$t("detail.notInLibraryHint")}</p>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm preview-hint-action"
+          disabled={watchFirstEpisodePending}
+          onclick={handleWatchFirstEpisode}
+        >
+          {$t("search.watchEpisodeOne")}
+        </button>
+      </div>
+    {/if}
+
+    {#if related && related.length > 0}
+      <div class="stack gap-s related-section">
+        <h2 class="m-0 card-subtitle">{$t("detail.relatedShowsHeading")}</h2>
+        <div class="grid">
+          {#each related as result (`${result.type}-${result.traktId}`)}
+            <SearchResultCard {result} />
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <ConfirmDialog
       open={removeConfirmOpen}
@@ -244,6 +308,14 @@
       onConfirm={confirmRemoveFromWatchlist}
       onCancel={() => (removeConfirmOpen = false)}
     />
+
+    <NoteModal
+      open={noteModalOpen}
+      itemType="show"
+      id={show.id}
+      bind:note={show.note}
+      onClose={() => (noteModalOpen = false)}
+    />
   {/if}
 </div>
 
@@ -251,6 +323,22 @@
   .menu-container {
     position: relative;
     flex-shrink: 0;
+  }
+
+  .note-preview {
+    font-size: 0.9rem;
+    font-style: italic;
+    white-space: pre-wrap;
+  }
+
+  .preview-hint-action {
+    align-self: flex-start;
+  }
+
+  .related-section {
+    margin-top: var(--space-l);
+    padding-top: var(--space-xl);
+    border-top: 1px solid var(--border);
   }
 
   @media (max-width: 640px) {

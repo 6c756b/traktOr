@@ -2,6 +2,7 @@
   --primary: #166534;
   --primary-hover: #14532d;
   --danger: #dc2626;
+  --warning: #c2410c;
 
   --bg: #ffffff;
   --surface: #f8fafc;
@@ -276,6 +277,10 @@ p {
   right: var(--space-m);
   color: #fff;
   border: none;
+  /* The card link gets a hover transform (see .library-card:hover/.show-card-link:hover),
+     and any transform creates a new stacking context -- without an explicit z-index here,
+     that context outranks this badge's implicit stack level on hover and covers it again. */
+  z-index: 1;
 }
 
 .hidden {

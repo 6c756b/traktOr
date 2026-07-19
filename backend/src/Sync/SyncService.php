@@ -4,6 +4,7 @@ namespace TraktOr\Sync;
 
 use RuntimeException;
 use Throwable;
+use TraktOr\Db\Repositories\CollectionRepository;
 use TraktOr\Db\Repositories\ListRepository;
 use TraktOr\Db\Repositories\MovieRepository;
 use TraktOr\Db\Repositories\ProgressRepository;
@@ -26,6 +27,7 @@ final class SyncService
     private RatingRepository $ratings;
     private ListRepository $lists;
     private WatchlistRepository $watchlist;
+    private CollectionRepository $collection;
     private SyncStateRepository $state;
     private string $language;
 
@@ -39,6 +41,7 @@ final class SyncService
         $this->ratings = new RatingRepository();
         $this->lists = new ListRepository();
         $this->watchlist = new WatchlistRepository();
+        $this->collection = new CollectionRepository();
         $this->state = new SyncStateRepository();
         $this->language = (new SettingsRepository())->getLanguage();
     }
@@ -58,6 +61,7 @@ final class SyncService
                 'ratings' => $this->syncRatings(),
                 'lists' => $this->syncLists(),
                 'watchlist' => $this->syncWatchlist(),
+                'collection' => $this->syncCollection(),
                 'hiddenShows' => $this->syncHiddenShows(),
             ];
             $warning = $shows['skipped'] > 0
@@ -137,6 +141,36 @@ final class SyncService
             'shows' => [[
                 'ids' => ['trakt' => $showTraktId],
                 'seasons' => [['number' => $season]],
+            ]],
+        ]);
+
+        $this->syncShow($showTraktId);
+    }
+
+    /** Marks an arbitrary set of episodes (any seasons) as watched in one Trakt call, then
+     *  resyncs -- used for earlier-unwatched episodes the user confirmed marking alongside
+     *  the episode/season they actually clicked (markEpisodeWatched()'s own cascade only
+     *  covers gaps within the same season).
+     * @param array<int, array{season:int, number:int}> $episodes */
+    public function markEpisodesWatched(int $showTraktId, array $episodes): void
+    {
+        if ($episodes === []) {
+            return;
+        }
+
+        $bySeason = [];
+        foreach ($episodes as $episode) {
+            $bySeason[$episode['season']][] = ['number' => $episode['number']];
+        }
+
+        $this->trakt->post('/sync/history', [
+            'shows' => [[
+                'ids' => ['trakt' => $showTraktId],
+                'seasons' => array_map(
+                    fn ($season, $eps) => ['number' => $season, 'episodes' => $eps],
+                    array_keys($bySeason),
+                    array_values($bySeason)
+                ),
             ]],
         ]);
 
@@ -312,6 +346,43 @@ final class SyncService
         $this->watchlist->upsertOne($itemType, $traktId, date('Y-m-d H:i:s'));
     }
 
+    /** Movie-only in this app's UI (no whole-show collect button, only per-season --
+     *  see collectSeason() below). Metadata sync first, same reasoning as addToWatchlist(). */
+    public function addToCollection(int $traktId): void
+    {
+        $this->syncMovie($traktId);
+        $this->trakt->post('/sync/collection', ['movies' => [['ids' => ['trakt' => $traktId]]]]);
+        $this->collection->upsertOne('movie', $traktId, 0, date('Y-m-d H:i:s'));
+    }
+
+    public function removeFromCollection(int $traktId): void
+    {
+        $this->trakt->post('/sync/collection/remove', ['movies' => [['ids' => ['trakt' => $traktId]]]]);
+        $this->collection->deleteOne('movie', $traktId, 0);
+    }
+
+    /** Collects an entire season -- no "episodes" key is Trakt's whole-season shorthand,
+     *  exact mirror of markSeasonWatched(). Minimal payload only (no media_type/resolution/
+     *  audio -- this app doesn't track physical formats). Unlike markEpisodeWatched(),
+     *  Collection has no "cascade prior episodes" concept -- it's a direct boolean per
+     *  season, no confirm-dialog interaction needed on the frontend. */
+    public function collectSeason(int $showTraktId, int $season): void
+    {
+        $this->syncShow($showTraktId);
+        $this->trakt->post('/sync/collection', [
+            'shows' => [['ids' => ['trakt' => $showTraktId], 'seasons' => [['number' => $season]]]],
+        ]);
+        $this->collection->upsertOne('show', $showTraktId, $season, date('Y-m-d H:i:s'));
+    }
+
+    public function uncollectSeason(int $showTraktId, int $season): void
+    {
+        $this->trakt->post('/sync/collection/remove', [
+            'shows' => [['ids' => ['trakt' => $showTraktId], 'seasons' => [['number' => $season]]]],
+        ]);
+        $this->collection->deleteOne('show', $showTraktId, $season);
+    }
+
     /** Marks a movie as watched on Trakt, syncing its metadata first if it isn't local yet
      *  (e.g. a fresh search result). */
     public function markMovieWatched(int $traktId): void
@@ -331,52 +402,191 @@ final class SyncService
             fn ($r) => in_array($r['type'], ['show', 'movie'], true)
         ));
 
-        $tmdbShowIds = [];
-        $tmdbMovieIds = [];
-        $showTraktIds = [];
-        $movieTraktIds = [];
-        foreach ($results as $r) {
-            $item = $r[$r['type']];
-            $r['type'] === 'show' ? $showTraktIds[] = $item['ids']['trakt'] : $movieTraktIds[] = $item['ids']['trakt'];
+        $showItems = array_map(fn ($r) => $r['show'], array_filter($results, fn ($r) => $r['type'] === 'show'));
+        $movieItems = array_map(fn ($r) => $r['movie'], array_filter($results, fn ($r) => $r['type'] === 'movie'));
+        $showTraktIds = array_map(fn ($i) => $i['ids']['trakt'], $showItems);
+        $movieTraktIds = array_map(fn ($i) => $i['ids']['trakt'], $movieItems);
 
-            $tmdbId = $item['ids']['tmdb'] ?? null;
-            if ($tmdbId === null) {
-                continue;
-            }
-            $r['type'] === 'show' ? $tmdbShowIds[] = $tmdbId : $tmdbMovieIds[] = $tmdbId;
-        }
-        $locale = Languages::locale($this->language);
-        $showDetails = $tmdbShowIds !== [] ? $this->tmdb->getManyDetails($tmdbShowIds, 'tv', $locale) : [];
-        $movieDetails = $tmdbMovieIds !== [] ? $this->tmdb->getManyDetails($tmdbMovieIds, 'movie', $locale) : [];
-
-        // "Already watched" is judged from the local DB (same source the rest of the app
-        // trusts), not a live Trakt call per result -- consistent with how the library
-        // elsewhere never live-queries watched state for movies, and keeps a 30-result
-        // search from firing dozens of extra requests.
+        $showDetails = $this->tmdbDetailsFor($showItems, 'tv');
+        $movieDetails = $this->tmdbDetailsFor($movieItems, 'movie');
         $watchedShowIds = array_flip($this->progress->watchedShowIds($showTraktIds));
         $watchedMovieIds = array_flip($this->movies->watchedTraktIds($movieTraktIds));
+        $onWatchlistShowIds = array_flip($this->watchlist->watchlistedTraktIds('show', $showTraktIds));
+        $onWatchlistMovieIds = array_flip($this->watchlist->watchlistedTraktIds('movie', $movieTraktIds));
 
-        return array_map(function ($r) use ($showDetails, $movieDetails, $watchedShowIds, $watchedMovieIds) {
-            $type = $r['type'];
-            $item = $r[$type];
-            $traktId = $item['ids']['trakt'];
-            $tmdbId = $item['ids']['tmdb'] ?? null;
-            $detail = $tmdbId ? (($type === 'show' ? $showDetails : $movieDetails)[$tmdbId] ?? null) : null;
-            // Mirrors applyShowTranslation()/applyMovieTranslation(): only substitute the
-            // TMDB-localized text when it's actually a non-English language and non-empty --
-            // otherwise keep Trakt's original (guaranteed) English title/overview.
-            $useTranslation = $detail !== null && $this->language !== 'en';
-            return [
-                'type' => $type,
-                'traktId' => $traktId,
-                'title' => ($useTranslation && $detail['title'] !== '') ? $detail['title'] : $item['title'],
-                'year' => $item['year'] ?? null,
-                'overview' => ($useTranslation && $detail['overview'] !== '') ? $detail['overview'] : ($item['overview'] ?? null),
-                'genres' => $item['genres'] ?? [],
-                'posterUrl' => $detail['poster_url'] ?? null,
-                'watched' => $type === 'show' ? isset($watchedShowIds[$traktId]) : isset($watchedMovieIds[$traktId]),
-            ];
-        }, $results);
+        return array_map(fn ($r) => $this->mapDiscoverItem(
+            $r[$r['type']],
+            $r['type'],
+            $r['type'] === 'show' ? $showDetails : $movieDetails,
+            $r['type'] === 'show' ? $watchedShowIds : $watchedMovieIds,
+            $r['type'] === 'show' ? $onWatchlistShowIds : $onWatchlistMovieIds
+        ), $results);
+    }
+
+    /** Personalized recommendations, trending shows and popular movies -- same card shape as
+     *  searchTrakt(), used as the Search page's browse-first empty state. */
+    public function recommendedShows(): array
+    {
+        return $this->mapDiscoverList($this->trakt->get('/recommendations/shows?limit=30&extended=full'), 'show');
+    }
+
+    public function recommendedMovies(): array
+    {
+        return $this->mapDiscoverList($this->trakt->get('/recommendations/movies?limit=30&extended=full'), 'movie');
+    }
+
+    /** Connected Trakt account info for display in Settings -- no social/follower data. */
+    public function getUserProfile(): array
+    {
+        $user = $this->trakt->get('/users/settings')['user'] ?? [];
+        return [
+            'username' => $user['username'] ?? null,
+            'name' => $user['name'] ?? null,
+            'avatar' => $user['images']['avatar']['full'] ?? null,
+            'joinedAt' => $user['joined_at'] ?? null,
+        ];
+    }
+
+    public function trendingShows(): array
+    {
+        $entries = $this->trakt->get('/shows/trending?limit=30&extended=full');
+        return $this->mapDiscoverList(array_map(fn ($e) => $e['show'], $entries), 'show');
+    }
+
+    public function popularMovies(): array
+    {
+        return $this->mapDiscoverList($this->trakt->get('/movies/popular?limit=30&extended=full'), 'movie');
+    }
+
+    /** "More like this" row for the show/movie detail pages. */
+    public function relatedShows(int $traktId): array
+    {
+        return $this->mapDiscoverList($this->trakt->get("/shows/{$traktId}/related?limit=10&extended=full"), 'show');
+    }
+
+    public function relatedMovies(int $traktId): array
+    {
+        return $this->mapDiscoverList($this->trakt->get("/movies/{$traktId}/related?limit=10&extended=full"), 'movie');
+    }
+
+    /** Live, non-persisting show detail for an item not yet in the local library (e.g. a
+     *  Recommendations/Trending/Related click) -- same shape as ShowRepository::findOne(),
+     *  but nothing is written to the DB. Only an explicit watchlist/watch action persists it
+     *  (see addToWatchlist()/markEpisodeWatched(), both already sync-on-demand). */
+    public function previewShow(int $traktId): ?array
+    {
+        try {
+            $show = $this->trakt->get("/shows/{$traktId}?extended=full");
+        } catch (Throwable) {
+            return null;
+        }
+
+        $tmdbId = $show['ids']['tmdb'] ?? null;
+        $details = $tmdbId ? $this->tmdb->getManyDetails([$tmdbId], 'tv', Languages::locale($this->language)) : [];
+        $detail = $tmdbId ? ($details[$tmdbId] ?? null) : null;
+        $useTranslation = $detail !== null && $this->language !== 'en';
+
+        return [
+            'id' => $traktId,
+            'slug' => $show['ids']['slug'],
+            'title' => ($useTranslation && $detail['title'] !== '') ? $detail['title'] : $show['title'],
+            'year' => $show['year'] ?? null,
+            'overview' => ($useTranslation && $detail['overview'] !== '') ? $detail['overview'] : ($show['overview'] ?? null),
+            'status' => $show['status'] ?? null,
+            'network' => $show['network'] ?? null,
+            'runtime' => $show['runtime'] ?? null,
+            'genres' => $show['genres'] ?? [],
+            'posterUrl' => $detail['poster_url'] ?? null,
+            'backdropUrl' => $detail['backdrop_url'] ?? null,
+            'airedEpisodes' => $show['aired_episodes'] ?? null,
+            'certification' => $show['certification'] ?? null,
+            'rating' => null,
+            'tmdbId' => $tmdbId,
+            'onWatchlist' => $this->watchlist->watchlistedTraktIds('show', [$traktId]) !== [],
+            'progress' => null,
+            'inLibrary' => false,
+        ];
+    }
+
+    /** Movie counterpart of previewShow(). */
+    public function previewMovie(int $traktId): ?array
+    {
+        try {
+            $movie = $this->trakt->get("/movies/{$traktId}?extended=full");
+        } catch (Throwable) {
+            return null;
+        }
+
+        $tmdbId = $movie['ids']['tmdb'] ?? null;
+        $details = $tmdbId ? $this->tmdb->getManyDetails([$tmdbId], 'movie', Languages::locale($this->language)) : [];
+        $detail = $tmdbId ? ($details[$tmdbId] ?? null) : null;
+        $useTranslation = $detail !== null && $this->language !== 'en';
+
+        return [
+            'id' => $traktId,
+            'slug' => $movie['ids']['slug'],
+            'title' => ($useTranslation && $detail['title'] !== '') ? $detail['title'] : $movie['title'],
+            'year' => $movie['year'] ?? null,
+            'overview' => ($useTranslation && $detail['overview'] !== '') ? $detail['overview'] : ($movie['overview'] ?? null),
+            'status' => $movie['status'] ?? null,
+            'genres' => $movie['genres'] ?? [],
+            'posterUrl' => $detail['poster_url'] ?? null,
+            'backdropUrl' => $detail['backdrop_url'] ?? null,
+            'runtime' => $movie['runtime'] ?? null,
+            'released' => $movie['released'] ?? null,
+            'certification' => $movie['certification'] ?? null,
+            'rating' => null,
+            'watchedAt' => null,
+            'onWatchlist' => $this->watchlist->watchlistedTraktIds('movie', [$traktId]) !== [],
+            'inLibrary' => false,
+        ];
+    }
+
+    /** Batched TMDB poster/translation lookup shared by searchTrakt() and the discovery
+     *  endpoints below. @param 'tv'|'movie' $mediaType */
+    private function tmdbDetailsFor(array $items, string $mediaType): array
+    {
+        $tmdbIds = array_values(array_filter(array_map(fn ($i) => $i['ids']['tmdb'] ?? null, $items)));
+        return $tmdbIds !== [] ? $this->tmdb->getManyDetails($tmdbIds, $mediaType, Languages::locale($this->language)) : [];
+    }
+
+    /** TMDB-enriches + watched-flags a flat list of same-type raw Trakt show/movie objects
+     *  into the SearchResult card shape. @param 'show'|'movie' $type */
+    private function mapDiscoverList(array $items, string $type): array
+    {
+        $details = $this->tmdbDetailsFor($items, $type === 'show' ? 'tv' : 'movie');
+        $traktIds = array_map(fn ($i) => $i['ids']['trakt'], $items);
+        // "Already watched"/"already on watchlist" are judged from the local DB (same source
+        // the rest of the app trusts), not a live Trakt call per result -- consistent with how
+        // the library elsewhere never live-queries watched state for movies, and keeps a
+        // 30-result list from firing dozens of extra requests.
+        $watchedIds = array_flip($type === 'show' ? $this->progress->watchedShowIds($traktIds) : $this->movies->watchedTraktIds($traktIds));
+        $onWatchlistIds = array_flip($this->watchlist->watchlistedTraktIds($type, $traktIds));
+
+        return array_map(fn ($item) => $this->mapDiscoverItem($item, $type, $details, $watchedIds, $onWatchlistIds), $items);
+    }
+
+    /** @param 'show'|'movie' $type */
+    private function mapDiscoverItem(array $item, string $type, array $details, array $watchedIds, array $onWatchlistIds): array
+    {
+        $traktId = $item['ids']['trakt'];
+        $tmdbId = $item['ids']['tmdb'] ?? null;
+        $detail = $tmdbId ? ($details[$tmdbId] ?? null) : null;
+        // Mirrors applyShowTranslation()/applyMovieTranslation(): only substitute the
+        // TMDB-localized text when it's actually a non-English language and non-empty --
+        // otherwise keep Trakt's original (guaranteed) English title/overview.
+        $useTranslation = $detail !== null && $this->language !== 'en';
+        return [
+            'type' => $type,
+            'traktId' => $traktId,
+            'title' => ($useTranslation && $detail['title'] !== '') ? $detail['title'] : $item['title'],
+            'year' => $item['year'] ?? null,
+            'overview' => ($useTranslation && $detail['overview'] !== '') ? $detail['overview'] : ($item['overview'] ?? null),
+            'genres' => $item['genres'] ?? [],
+            'posterUrl' => $detail['poster_url'] ?? null,
+            'watched' => isset($watchedIds[$traktId]),
+            'onWatchlist' => isset($onWatchlistIds[$traktId]),
+        ];
     }
 
     /** "Cancel" a show -- hides it from Trakt's watch-progress calculation (what powers
@@ -619,6 +829,79 @@ final class SyncService
 
         $this->watchlist->replaceAll(null, $rows);
         return count($rows);
+    }
+
+    /** Items marked "owned" via Trakt's Collection feature (GET /sync/collection/movies,
+     *  GET /sync/collection/shows) -- these are two SEPARATE endpoints, unlike
+     *  /sync/watchlist's single mixed response. Only show+season presence is parsed --
+     *  media_type/resolution/audio metadata in the response is discarded, this app doesn't
+     *  track physical formats. */
+    private function syncCollection(): int
+    {
+        $movieRows = [];
+        $movieEntries = $this->trakt->get('/sync/collection/movies?extended=full');
+        if ($movieEntries !== []) {
+            $tmdbIds = array_values(array_filter(array_map(fn ($e) => $e['movie']['ids']['tmdb'] ?? null, $movieEntries)));
+            $details = $this->tmdb->getManyDetails($tmdbIds, 'movie', Languages::locale($this->language));
+            foreach ($movieEntries as $entry) {
+                $movie = $entry['movie'];
+                // watched_at intentionally omitted (defaults to null), same reasoning as
+                // syncWatchlist() -- upsert()'s COALESCE guard means this never clobbers an
+                // already-watched movie's watched_at.
+                $this->movies->upsert($this->mapMovie($movie));
+                $this->applyMovieTranslation($movie['ids']['trakt'], $movie['ids']['tmdb'] ?? null, $details);
+                $movieRows[] = [
+                    'item_type' => 'movie',
+                    'item_trakt_id' => $movie['ids']['trakt'],
+                    'season_number' => 0,
+                    'collected_at' => self::toDatetime($entry['collected_at'] ?? null) ?? date('Y-m-d H:i:s'),
+                ];
+            }
+        }
+        $this->collection->replaceAll('movie', $movieRows);
+
+        $showRows = [];
+        $showEntries = $this->trakt->get('/sync/collection/shows?extended=full');
+        if ($showEntries !== []) {
+            $traktIds = array_map(fn ($e) => $e['show']['ids']['trakt'], $showEntries);
+            $metaResults = $this->trakt->getMany(array_map(fn ($id) => "/shows/{$id}?extended=full", $traktIds));
+            $showsById = [];
+            foreach ($metaResults as $s) {
+                $showsById[$s['ids']['trakt']] = $s;
+            }
+
+            $tmdbIds = array_values(array_filter(array_map(fn ($s) => $s['ids']['tmdb'] ?? null, $showsById)));
+            $details = $this->tmdb->getManyDetails($tmdbIds, 'tv', Languages::locale($this->language));
+
+            foreach ($showEntries as $entry) {
+                $traktId = $entry['show']['ids']['trakt'];
+                // Metadata fetch failed: skip, same reasoning as syncWatchlist().
+                if (!isset($showsById[$traktId])) {
+                    continue;
+                }
+                $this->shows->upsert($this->mapShow($showsById[$traktId]));
+                $this->applyShowTranslation($traktId, $showsById[$traktId]['ids']['tmdb'] ?? null, $details);
+                foreach ($entry['seasons'] ?? [] as $season) {
+                    // Presence heuristic: a season counts as "collected" if it has >=1 episode
+                    // entry, not a strict count match against season_structure. This app only
+                    // ever WRITES whole-season collection, so the only way this could diverge
+                    // is a partial season collected directly via another Trakt client.
+                    if (($season['episodes'] ?? []) === []) {
+                        continue;
+                    }
+                    $showRows[] = [
+                        'item_type' => 'show',
+                        'item_trakt_id' => $traktId,
+                        'season_number' => $season['number'],
+                        // Trakt gives per-episode collected_at, not per-season -- sync time is used instead.
+                        'collected_at' => date('Y-m-d H:i:s'),
+                    ];
+                }
+            }
+        }
+        $this->collection->replaceAll('show', $showRows);
+
+        return count($movieRows) + count($showRows);
     }
 
     /** Reconciles local hidden flags with Trakt's 'progress_watched' hidden list (source of

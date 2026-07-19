@@ -6,21 +6,26 @@
   import { translateGenre } from "../utils/genres";
   import { language } from "../stores/settings";
   import { toasts } from "../stores/toast";
-  import { navigate } from "../router";
+  import { link } from "../router";
   import { t } from "../i18n";
   import type { SearchResult } from "../api/search";
 
   let { result }: { result: SearchResult } = $props();
 
+  const href = $derived(`/${result.type === "show" ? "show" : "movie"}/${result.traktId}`);
+
   let addPending = $state(false);
-  let onWatchlist = $state(false);
+  let justAddedToWatchlist = $state(false);
+  const onWatchlist = $derived(result.onWatchlist || justAddedToWatchlist);
   let watchPending = $state(false);
+  let justWatched = $state(false);
+  const watched = $derived(result.watched || justWatched);
 
   async function handleAddToWatchlist() {
     addPending = true;
     try {
       await addToWatchlist(result.type, result.traktId);
-      onWatchlist = true;
+      justAddedToWatchlist = true;
       toasts.push($t("watchlist.addSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "watchlist.addError", $t), "error");
@@ -34,44 +39,47 @@
     try {
       if (result.type === "show") {
         await watchEpisode(result.traktId, 1, 1);
-        navigate(`/show/${result.traktId}`);
       } else {
         await markMovieWatched(result.traktId);
-        navigate(`/movie/${result.traktId}`);
       }
+      justWatched = true;
+      toasts.push($t("continueWatching.markWatchedSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "detail.markWatchedError", $t), "error");
+    } finally {
       watchPending = false;
     }
   }
 </script>
 
 <div class="card search-card stack gap-s">
-  <div class="poster">
-    {#if result.posterUrl}
-      <img src={result.posterUrl} alt={$t("detail.posterAlt", { title: result.title })} loading="lazy" />
-    {:else}
-      <div class="poster-fallback text-muted">{result.title}</div>
-    {/if}
-  </div>
+  <a {href} use:link class="search-card-link stack gap-xs">
+    <div class="poster">
+      {#if result.posterUrl}
+        <img src={result.posterUrl} alt={$t("detail.posterAlt", { title: result.title })} loading="lazy" />
+      {:else}
+        <div class="poster-fallback text-muted">{result.title}</div>
+      {/if}
+    </div>
 
-  <div class="stack gap-xs search-card-body">
-    <h3 class="m-0 card-title">
-      {result.title}
-      {#if result.year}<span class="text-muted">({result.year})</span>{/if}
-    </h3>
-    {#if result.genres.length}
-      <p class="text-muted text-sm m-0">
-        {result.genres.slice(0, 3).map((g) => translateGenre(g, $language)).join(", ")}
-      </p>
-    {/if}
-    {#if result.overview}
-      <p class="text-muted text-sm search-card-overview">{result.overview}</p>
-    {/if}
-  </div>
+    <div class="stack gap-xs search-card-body">
+      <h3 class="m-0 card-title">
+        {result.title}
+        {#if result.year}<span class="text-muted">({result.year})</span>{/if}
+      </h3>
+      {#if result.genres.length}
+        <p class="text-muted text-sm m-0">
+          {result.genres.slice(0, 3).map((g) => translateGenre(g, $language)).join(", ")}
+        </p>
+      {/if}
+      {#if result.overview}
+        <p class="text-muted text-sm search-card-overview">{result.overview}</p>
+      {/if}
+    </div>
+  </a>
 
   <div class="stack gap-xs search-card-actions">
-    {#if result.watched}
+    {#if watched}
       <span class="badge">{$t("search.alreadyWatched")}</span>
     {:else}
       {#if onWatchlist}
@@ -92,6 +100,15 @@
   .search-card {
     padding: 0;
     overflow: hidden;
+  }
+
+  .search-card-link {
+    /* Grows to absorb the extra height CSS Grid gives this card when a sibling in the same
+       row has more text (title/genres/overview) -- without this, .search-card-actions just
+       trails the natural content height instead of sitting flush at the card bottom. */
+    flex: 1;
+    text-decoration: none;
+    color: inherit;
   }
 
   .poster {

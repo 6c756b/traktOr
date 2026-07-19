@@ -11,15 +11,22 @@ final class MovieRepository
         'title' => ['column' => 'm.title', 'defaultDir' => 'ASC'],
         'year' => ['column' => 'm.year', 'defaultDir' => 'DESC'],
         'rating' => ['column' => 'r.rating', 'defaultDir' => 'DESC'],
-        'listed' => ['column' => 'wi.listed_at', 'defaultDir' => 'DESC'],
+        'listed' => ['column' => 'wl.listed_at', 'defaultDir' => 'DESC'],
     ];
 
+    // wl/ci are always LEFT JOINed (like ratings) so "is this on my watchlist"/"is this
+    // collected" are generically available on every row, not just as a filter -- mirrors
+    // ShowRepository's JOIN_LEFT. search()'s watchlist_only/collection_only modes turn them
+    // into filters via a WHERE condition instead of a second, redundant JOIN.
     private const SELECT = "SELECT
             m.trakt_id, m.slug, m.title, m.year, m.overview, m.status, m.genres,
             m.poster_url, m.backdrop_url, m.runtime, m.released, m.certification, m.translations,
-            m.watched_at, r.rating
+            m.watched_at, wl.listed_at AS watchlist_listed_at, r.rating, ci.collected_at, n.note
         FROM movies m
-        LEFT JOIN ratings r ON r.item_type = 'movie' AND r.trakt_id = m.trakt_id";
+        LEFT JOIN watchlist_items wl ON wl.item_type = 'movie' AND wl.item_trakt_id = m.trakt_id
+        LEFT JOIN ratings r ON r.item_type = 'movie' AND r.trakt_id = m.trakt_id
+        LEFT JOIN collection_items ci ON ci.item_type = 'movie' AND ci.item_trakt_id = m.trakt_id AND ci.season_number = 0
+        LEFT JOIN notes n ON n.item_type = 'movie' AND n.trakt_id = m.trakt_id";
 
     public function upsert(array $row): void
     {
@@ -94,6 +101,7 @@ final class MovieRepository
     {
         [$where, $params] = FilterQueryBuilder::build($filters, 'm');
         $watchlistOnly = !empty($filters['watchlist_only']);
+        $collectionOnly = !empty($filters['collection_only']);
         $joins = '';
 
         if (isset($filters['rating_min'])) {
@@ -108,7 +116,9 @@ final class MovieRepository
         }
 
         if ($watchlistOnly) {
-            $joins .= " JOIN watchlist_items wi ON wi.item_type = 'movie' AND wi.item_trakt_id = m.trakt_id";
+            $where[] = 'wl.listed_at IS NOT NULL';
+        } elseif ($collectionOnly) {
+            $where[] = 'ci.collected_at IS NOT NULL';
         } else {
             $where[] = 'm.watched_at IS NOT NULL';
         }
@@ -137,11 +147,13 @@ final class MovieRepository
     }
 
     /** @return string[] */
-    public function distinctGenres(bool $watchlistOnly = false): array
+    public function distinctGenres(bool $watchlistOnly = false, bool $collectionOnly = false): array
     {
-        $sql = $watchlistOnly
-            ? "SELECT m.genres FROM movies m JOIN watchlist_items wi ON wi.item_type = 'movie' AND wi.item_trakt_id = m.trakt_id"
-            : 'SELECT genres FROM movies WHERE watched_at IS NOT NULL';
+        $sql = match (true) {
+            $watchlistOnly => "SELECT m.genres FROM movies m JOIN watchlist_items wi ON wi.item_type = 'movie' AND wi.item_trakt_id = m.trakt_id",
+            $collectionOnly => "SELECT m.genres FROM movies m JOIN collection_items ci ON ci.item_type = 'movie' AND ci.item_trakt_id = m.trakt_id AND ci.season_number = 0",
+            default => 'SELECT genres FROM movies WHERE watched_at IS NOT NULL',
+        };
         $raw = Database::pdo()->query($sql)->fetchAll(\PDO::FETCH_COLUMN);
         return FilterQueryBuilder::distinctGenres($raw);
     }
@@ -166,6 +178,10 @@ final class MovieRepository
             'certification' => $row['certification'],
             'rating' => $row['rating'] !== null ? (int) $row['rating'] : null,
             'watchedAt' => $row['watched_at'],
+            'onWatchlist' => $row['watchlist_listed_at'] !== null,
+            'inCollection' => $row['collected_at'] !== null,
+            'note' => $row['note'],
+            'inLibrary' => true,
         ];
     }
 }

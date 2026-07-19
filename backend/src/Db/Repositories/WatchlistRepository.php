@@ -45,6 +45,20 @@ final class WatchlistRepository
         $stmt->execute(['item_type' => $itemType, 'item_trakt_id' => $traktId, 'listed_at' => $listedAt]);
     }
 
+    /** @param 'show'|'movie' $itemType @param int[] $traktIds @return int[] the subset already on the watchlist */
+    public function watchlistedTraktIds(string $itemType, array $traktIds): array
+    {
+        if ($traktIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($traktIds), '?'));
+        $stmt = Database::pdo()->prepare(
+            "SELECT item_trakt_id FROM watchlist_items WHERE item_type = ? AND item_trakt_id IN ({$placeholders})"
+        );
+        $stmt->execute([$itemType, ...$traktIds]);
+        return array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
     public function deleteOne(string $itemType, int $traktId): void
     {
         Database::pdo()->prepare('DELETE FROM watchlist_items WHERE item_type = :item_type AND item_trakt_id = :trakt_id')
