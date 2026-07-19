@@ -103,7 +103,11 @@
     if (!show) return;
     try {
       await addToWatchlist("show", show.id);
-      show.onWatchlist = true;
+      // addToWatchlist() syncs the show first if it wasn't local yet (e.g. added straight
+      // from a preview/search result) -- refreshProgress() picks up inLibrary/collectedSeasons
+      // too (not just onWatchlist), so the episode list mounts without a manual page refresh.
+      // In-place refresh, no full loading-state flash (see refreshProgress()'s own comment).
+      await refreshProgress();
       toasts.push($t("watchlist.addSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "watchlist.addError", $t), "error");
@@ -276,14 +280,25 @@
     {:else}
       <div class="card stack gap-s preview-hint">
         <p class="text-muted m-0">{$t("detail.notInLibraryHint")}</p>
-        <button
-          type="button"
-          class="btn btn-primary btn-sm preview-hint-action"
-          disabled={watchFirstEpisodePending}
-          onclick={handleWatchFirstEpisode}
-        >
-          {$t("search.watchEpisodeOne")}
-        </button>
+        <div class="row gap-s wrap">
+          <button
+            type="button"
+            class="btn btn-primary btn-sm preview-hint-action"
+            disabled={watchFirstEpisodePending}
+            onclick={handleWatchFirstEpisode}
+          >
+            {$t("search.watchEpisodeOne")}
+          </button>
+          {#if !show.onWatchlist}
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm preview-hint-action"
+              onclick={handleAddToWatchlist}
+            >
+              {$t("watchlist.add")}
+            </button>
+          {/if}
+        </div>
       </div>
     {/if}
 
