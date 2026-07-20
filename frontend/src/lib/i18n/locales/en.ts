@@ -38,6 +38,8 @@ export default {
   "continueWatching.lastWatched": "Last: {time}",
   "continueWatching.markWatched": "Mark as watched",
   "continueWatching.markWatchedSuccess": "Marked as watched.",
+  "continueWatching.markWatchedConfirmTitle": "Mark as watched?",
+  "continueWatching.markWatchedConfirmBody": "“{show} · {episode}” will be marked as watched.",
 
   "library.shows": "Shows",
   "library.movies": "Movies",
@@ -141,6 +143,7 @@ export default {
   "search.tabTrendingShows": "Trending Shows",
   "search.tabPopularMovies": "Popular Movies",
 
+  "login.intro": "Your self-hosted cockpit for Trakt.tv – continue watching, search, and rate, all in one place, no clutter.",
   "login.tagline": "Your tractor is waiting in the barn — just the password, then off to the field.",
   "login.passwordPlaceholder": "Password",
   "login.loginFailed": "Login failed.",

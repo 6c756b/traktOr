@@ -5,21 +5,11 @@
   import { t } from "../i18n";
   import { language } from "../stores/settings";
 
-  let { item, onMarkWatched }: {
+  let { item, marking = false, onMarkWatched }: {
     item: ContinueWatchingItem;
-    onMarkWatched: (item: ContinueWatchingItem) => Promise<void>;
+    marking?: boolean;
+    onMarkWatched: (item: ContinueWatchingItem) => void;
   } = $props();
-
-  let marking = $state(false);
-
-  async function handleMarkWatched() {
-    marking = true;
-    try {
-      await onMarkWatched(item);
-    } finally {
-      marking = false;
-    }
-  }
 
   const episodeLabel = $derived(
     `S${String(item.nextEpisode.season).padStart(2, "0")}E${String(item.nextEpisode.number).padStart(2, "0")}`
@@ -27,9 +17,21 @@
 </script>
 
 <article class="card stack gap-s show-card">
-  {#if item.newEpisodesCount > 1}
-    <span class="badge poster-badge">+{item.newEpisodesCount}</span>
-  {/if}
+  <button
+    type="button"
+    class="poster-badge mark-watched-chip"
+    onclick={() => onMarkWatched(item)}
+    disabled={marking}
+    aria-label={$t("continueWatching.markWatched")}
+    title={$t("continueWatching.markWatched")}
+  >
+    {#if item.newEpisodesCount > 1}
+      <span class="chip-count">+{item.newEpisodesCount}</span>
+    {/if}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 12l5 5L22 6" />
+    </svg>
+  </button>
   <a href="/show/{item.id}" use:link class="show-card-link stack gap-s">
     <div class="poster">
       {#if item.posterUrl}
@@ -49,10 +51,6 @@
       </p>
     </div>
   </a>
-
-  <button class="btn btn-primary show-card-action" onclick={handleMarkWatched} disabled={marking}>
-    {marking ? $t("common.markingWatched") : $t("continueWatching.markWatched")}
-  </button>
 </article>
 
 <style>
@@ -89,14 +87,6 @@
     text-overflow: ellipsis;
   }
 
-  .show-card-action {
-    margin: var(--space-m);
-    margin-top: 0;
-    padding-inline: var(--space-s);
-    font-size: 0.85rem;
-    white-space: nowrap;
-  }
-
   .poster {
     /* No position here: it must stay a plain in-flow (non-positioned) box, otherwise it
        paints above the earlier-in-DOM absolute-positioned .poster-badge sibling instead of
@@ -128,6 +118,37 @@
     background: var(--primary);
   }
 
+  /* Two rows in one badge: the new-episodes count on top, the mark-watched action
+     below -- replaces the separate +N badge and the full-width button underneath. */
+  .mark-watched-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: var(--space-xs) var(--space-s);
+    border: none;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    transition: opacity var(--transition-fast) ease;
+  }
+
+  .mark-watched-chip:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .chip-count {
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .mark-watched-chip svg {
+    width: 14px;
+    height: 14px;
+  }
+
   /* 455px, not the usual 640px breakpoint: the shared .grid (minmax(200px, 1fr), 24px gap,
      16px page padding) only drops to a single column below ~456px viewport width. Above that
      it stays 2-column with ~200-292px card width, too narrow for poster+text side by side. */
@@ -144,17 +165,6 @@
 
     .show-card-info {
       padding: var(--space-m);
-    }
-
-    .show-card-action {
-      position: absolute;
-      left: calc(110px + var(--space-m));
-      right: var(--space-m);
-      bottom: var(--space-m);
-      margin: 0;
-      min-height: 36px;
-      padding-block: var(--space-xs);
-      white-space: normal;
     }
   }
 </style>

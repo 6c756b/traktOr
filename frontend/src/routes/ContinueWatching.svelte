@@ -5,6 +5,7 @@
   import { apiErrorMessage } from "../lib/api/errors";
   import ShowCard from "../lib/components/ShowCard.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
+  import ConfirmDialog from "../lib/components/ConfirmDialog.svelte";
   import { t } from "../lib/i18n";
   import { toasts } from "../lib/stores/toast";
 
@@ -56,7 +57,22 @@
     load();
   }
 
-  async function handleMarkWatched(item: ContinueWatchingItem) {
+  let pendingMarkWatched = $state<ContinueWatchingItem | null>(null);
+  let markingId = $state<number | null>(null);
+
+  function episodeLabel(item: ContinueWatchingItem): string {
+    return `S${String(item.nextEpisode.season).padStart(2, "0")}E${String(item.nextEpisode.number).padStart(2, "0")}`;
+  }
+
+  function requestMarkWatched(item: ContinueWatchingItem) {
+    pendingMarkWatched = item;
+  }
+
+  async function confirmMarkWatched() {
+    if (!pendingMarkWatched) return;
+    const item = pendingMarkWatched;
+    pendingMarkWatched = null;
+    markingId = item.id;
     try {
       const { item: updated } = await markEpisodeWatched(item.id, item.nextEpisode.season, item.nextEpisode.number);
       if (!items) return;
@@ -66,6 +82,8 @@
       toasts.push($t("continueWatching.markWatchedSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
+    } finally {
+      markingId = null;
     }
   }
 </script>
@@ -100,8 +118,20 @@
   {:else}
     <div class="grid">
       {#each items as item (item.id)}
-        <ShowCard {item} onMarkWatched={handleMarkWatched} />
+        <ShowCard {item} marking={markingId === item.id} onMarkWatched={requestMarkWatched} />
       {/each}
     </div>
   {/if}
 </div>
+
+<ConfirmDialog
+  open={pendingMarkWatched !== null}
+  title={$t("continueWatching.markWatchedConfirmTitle")}
+  message={pendingMarkWatched
+    ? $t("continueWatching.markWatchedConfirmBody", { show: pendingMarkWatched.title, episode: episodeLabel(pendingMarkWatched) })
+    : ""}
+  confirmLabel={$t("common.confirm")}
+  cancelLabel={$t("common.cancel")}
+  onConfirm={confirmMarkWatched}
+  onCancel={() => (pendingMarkWatched = null)}
+/>

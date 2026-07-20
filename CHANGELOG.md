@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-20
+
+### Added
+
+- Confirmation dialog before marking a Continue Watching episode as watched
+- Short intro sentence on the login page explaining what TraktOr is, above the existing tagline
+
+### Changed
+
+- Continue Watching cards: the "+N new episodes" badge and "mark as watched" button are now combined
+  into a single two-row chip overlaid on the poster (count on top, checkmark below), replacing the
+  separate corner badge and full-width button underneath
+- Login page's GitHub link now uses the official GitHub mark instead of a generic arrow icon
+
 ## [0.4.0] - 2026-07-19
 
 ### Added

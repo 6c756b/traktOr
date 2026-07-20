@@ -48,6 +48,8 @@ export default {
   "continueWatching.lastWatched": "Last: {time}",
   "continueWatching.markWatched": "Mark as watched",
   "continueWatching.markWatchedSuccess": "Marked as watched.",
+  "continueWatching.markWatchedConfirmTitle": "Mark as watched?",
+  "continueWatching.markWatchedConfirmBody": "“{show} · {episode}” will be marked as watched.",
 
   "library.shows": "Shows",
   "library.movies": "Movies",

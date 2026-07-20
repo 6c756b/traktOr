@@ -4,7 +4,7 @@
   <p><strong>A lightweight, self-hosted companion for your Trakt.tv library.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-0.4.0-166534" alt="Version 0.4.0" />
+    <img src="https://img.shields.io/badge/version-0.5.0-166534" alt="Version 0.4.1" />
     <img src="https://img.shields.io/badge/license-MIT-166534" alt="MIT License" />
     <img src="https://img.shields.io/badge/i18n-EN%20%7C%20DE-166534" alt="Available in English and German" />
   </p>
@@ -23,8 +23,8 @@ Trakt.tv's own web UI is cluttered and slow to get a straight answer out of: *wh
 
 ## Features
 
-- **Continue Watching** — next episode per show, sorted by newest or longest waiting, one click to mark
-  it (and any earlier gaps in that season) as watched
+- **Continue Watching** — next episode per show, sorted by newest or longest waiting, one click (with
+  confirmation) to mark it (and any earlier gaps in that season) as watched
 - **Library** — search and filter your shows and movies by genre, status, year and rating
 - **Watchlist** — tracks Trakt's watchlist independently from watch history, with the same
   search/filter/sort tools as Library and one-click add/remove (with confirmation)
