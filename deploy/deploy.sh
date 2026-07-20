@@ -32,6 +32,7 @@ cp "$ROOT_DIR/backend/.htaccess" "$STAGE_DIR/api/.htaccess"
 cp -R "$ROOT_DIR/backend/src" "$STAGE_DIR/api/src"
 mkdir -p "$STAGE_DIR/api/config"
 cp "$ROOT_DIR/backend/config/.htaccess" "$STAGE_DIR/api/config/.htaccess"
+find "$STAGE_DIR" -name '.DS_Store' -delete
 
 echo "Staging fertig: $STAGE_DIR"
 
