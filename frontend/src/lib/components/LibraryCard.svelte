@@ -92,11 +92,6 @@
       aria-label={$t("watchlist.remove")}
       title={$t("watchlist.remove")}
     >✕</button>
-    <button
-      type="button"
-      class="btn btn-sm btn-danger library-card-remove-mobile"
-      onclick={() => onRemove()}
-    >{$t("watchlist.remove")}</button>
   {/if}
 </div>
 
@@ -239,29 +234,6 @@
     background: var(--danger);
   }
 
-  .library-card-remove-mobile {
-    display: none;
-  }
-
-  .btn-danger {
-    background: #b91c1c;
-    color: #fff;
-  }
-
-  .btn-danger:hover {
-    opacity: 0.9;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .btn-danger {
-      background: var(--danger);
-    }
-  }
-
-  :root[data-theme="dark"] .btn-danger {
-    background: var(--danger);
-  }
-
   .progress-track {
     margin-top: auto;
     height: 4px;
@@ -293,16 +265,11 @@
       padding: var(--space-m);
     }
 
-    .remove-badge {
-      display: none;
-    }
-
-    .library-card-remove-mobile {
-      display: flex;
-      position: absolute;
-      left: calc(110px + var(--space-m));
-      right: var(--space-m);
-      bottom: var(--space-m);
+    /* At this width the poster+info row puts the title right under the top-right
+       remove badge -- cap the width so the ellipsis kicks in before the text
+       reaches under the button instead of running beneath it. */
+    .card-title {
+      max-width: 80%;
     }
   }
 </style>
