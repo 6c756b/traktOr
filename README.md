@@ -4,7 +4,7 @@
   <p><strong>A lightweight, self-hosted companion for your Trakt.tv library.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-0.5.0-166534" alt="Version 0.4.1" />
+    <img src="https://img.shields.io/badge/version-0.5.0-166534" alt="Version 0.5.0" />
     <img src="https://img.shields.io/badge/license-MIT-166534" alt="MIT License" />
     <img src="https://img.shields.io/badge/i18n-EN%20%7C%20DE-166534" alt="Available in English and German" />
   </p>
@@ -31,6 +31,8 @@ Trakt.tv's own web UI is cluttered and slow to get a straight answer out of: *wh
 - **Search & Discover** — find any show or movie on trakt.tv, even ones brand new to your account, and
   either add it to the watchlist or start watching right away; an empty search shows Recommended,
   Trending and Popular tabs, and every show/movie detail page has a "similar titles" section
+- **Cast & filmography** — every show/movie detail page shows its main cast with photos; click through
+  to an actor's page for their bio and a filmography grid linking back into the app
 - **Collection** — mark movies and individual show seasons as owned, synced to Trakt's native Collection
   feature; a badge on Library/Watchlist cards turns orange once you've caught up on watching but a
   newer season isn't in your collection yet

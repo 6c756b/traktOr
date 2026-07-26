@@ -12,6 +12,7 @@
   import Library from "./routes/Library.svelte";
   import ShowDetail from "./routes/ShowDetail.svelte";
   import MovieDetail from "./routes/MovieDetail.svelte";
+  import PersonDetail from "./routes/PersonDetail.svelte";
   import Settings from "./routes/Settings.svelte";
   import Login from "./routes/Login.svelte";
   import Toast from "./lib/components/Toast.svelte";
@@ -63,6 +64,7 @@
 
   let showId = $derived(matchPath("/show/:id", $currentPath));
   let movieId = $derived(matchPath("/movie/:id", $currentPath));
+  let personId = $derived(matchPath("/person/:id", $currentPath));
 </script>
 
 {#if !$session.checked}
@@ -76,7 +78,7 @@
         <img
           class="logo"
           src="{import.meta.env.BASE_URL}{$effectiveTheme === 'dark' ? 'logo-dark.svg' : 'logo.svg'}"
-          alt="TraktOr"
+          alt="[trakt]Or"
         />
       </a>
       <div class="row gap-m nav-links">
@@ -123,6 +125,8 @@
       <ShowDetail id={showId.id} />
     {:else if movieId}
       <MovieDetail id={movieId.id} />
+    {:else if personId}
+      <PersonDetail id={personId.id} />
     {:else if $currentPath === "/settings"}
       <Settings />
     {:else if $currentPath === "/login"}

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-26
+
+### Added
+
+- Cast section on show and movie detail pages — photo, name and character for the main cast, sourced
+  live from Trakt
+- Clicking a cast member opens a new actor page with their photo, biography and a filmography grid of
+  their other movies/shows, each linking through to that title's own detail page
+
+### Changed
+
+- Logo redesigned: the wordmark is now bracketed as "[trakt]or", and the "trakt" portion uses the
+  actual trakt.tv wordmark typography instead of the previous custom lettering
+- Remaining "TraktOr" brand text (page title, Settings footer, logo alt text, console banner) updated
+  to match the new "[trakt]Or" logo
+- Search/Discover result cards and the show detail page no longer offer "watch episode 1" for a show
+  that isn't in your library yet — they now add the show to the library without marking anything
+  watched, so you can start watching from its own episode list at your own pace; the same action is
+  also available from the show detail page's "…" menu, consistent with the watchlist toggle there
+- Search & filter panel on Library and Watchlist now starts collapsed on every screen size, not just
+  mobile
+
 ## [0.4.1] - 2026-07-20
 
 ### Added

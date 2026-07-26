@@ -211,6 +211,12 @@ $router->post('/shows/:id/unhide', function (Request $request, array $params) {
     Response::noContent();
 });
 
+$router->post('/shows/:id/add', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    (new SyncService())->addShowToLibrary((int) $params['id']);
+    Response::noContent();
+});
+
 $router->get('/shows/:id/season-shape', function (Request $request, array $params) {
     AppAuth::requireAuth();
     Response::json((new SyncService())->getSeasonShape((int) $params['id']));
@@ -435,6 +441,30 @@ $router->get('/shows/:id/related', function (Request $request, array $params) {
 $router->get('/movies/:id/related', function (Request $request, array $params) {
     AppAuth::requireAuth();
     Response::json((new SyncService())->relatedMovies((int) $params['id']));
+});
+
+$router->get('/shows/:id/cast', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    Response::json((new SyncService())->castFor('show', (int) $params['id']));
+});
+
+$router->get('/movies/:id/cast', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    Response::json((new SyncService())->castFor('movie', (int) $params['id']));
+});
+
+$router->get('/people/:id', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    $person = (new SyncService())->personDetail((int) $params['id']);
+    if (!$person) {
+        Response::error(404, 'person_not_found');
+    }
+    Response::json($person);
+});
+
+$router->get('/people/:id/credits', function (Request $request, array $params) {
+    AppAuth::requireAuth();
+    Response::json((new SyncService())->personCredits((int) $params['id']));
 });
 
 $router->post('/watch/movie', function (Request $request) {

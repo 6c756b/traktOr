@@ -104,6 +104,10 @@ export function unhideShow(id: number): Promise<void> {
   return api.post(`/shows/${id}/unhide`);
 }
 
+export function addShowToLibrary(id: number): Promise<void> {
+  return api.post(`/shows/${id}/add`);
+}
+
 export function fetchMovieDetail(id: number): Promise<MovieListItem> {
   return api.get<MovieListItem>(`/movies/${id}`);
 }

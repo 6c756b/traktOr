@@ -41,7 +41,7 @@
     filters = { sort: filters.sort, dir: filters.dir };
   }
 
-  let expanded = $state(window.innerWidth > 640);
+  let expanded = $state(false);
 </script>
 
 <div class="card stack gap-m">

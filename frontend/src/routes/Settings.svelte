@@ -205,7 +205,7 @@
     </section>
   </div>
 
-  <p class="text-muted text-sm settings-version">TraktOr v{__APP_VERSION__}</p>
+  <p class="text-muted text-sm settings-version">[trakt]Or v{__APP_VERSION__}</p>
 </div>
 
 <style>

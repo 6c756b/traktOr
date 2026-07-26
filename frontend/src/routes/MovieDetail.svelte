@@ -3,6 +3,7 @@
   import { addToWatchlist, removeFromWatchlist } from "../lib/api/watchlist";
   import { addToCollection, removeFromCollection } from "../lib/api/collection";
   import { fetchRelatedMovies, type SearchResult } from "../lib/api/search";
+  import { fetchMovieCast, type CastMember } from "../lib/api/people";
   import { apiErrorMessage } from "../lib/api/errors";
   import { formatAirDate } from "../lib/utils/time";
   import { translateGenre } from "../lib/utils/genres";
@@ -10,6 +11,7 @@
   import RatingWidget from "../lib/components/RatingWidget.svelte";
   import NoteModal from "../lib/components/NoteModal.svelte";
   import SearchResultCard from "../lib/components/SearchResultCard.svelte";
+  import CastRow from "../lib/components/CastRow.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
   import { language } from "../lib/stores/settings";
   import { toasts } from "../lib/stores/toast";
@@ -28,15 +30,22 @@
   // "More like this" -- purely supplementary, a failed/empty fetch just leaves it hidden
   // instead of surfacing its own error state.
   let related = $state<SearchResult[] | null>(null);
+  let cast = $state<CastMember[] | null>(null);
 
   async function load(movieId: string) {
     movie = null;
     error = "";
     related = null;
+    cast = null;
     try {
       movie = await fetchMovieDetail(Number(movieId));
     } catch (e) {
       error = apiErrorMessage(e, "common.loadError", $t);
+    }
+    try {
+      cast = await fetchMovieCast(Number(movieId));
+    } catch {
+      cast = null;
     }
     try {
       related = await fetchRelatedMovies(Number(movieId));
@@ -186,6 +195,13 @@
       </div>
     </div>
 
+    {#if cast && cast.length > 0}
+      <div class="stack gap-s cast-section">
+        <h2 class="m-0 card-subtitle">{$t("detail.castHeading")}</h2>
+        <CastRow {cast} />
+      </div>
+    {/if}
+
     {#if related && related.length > 0}
       <div class="stack gap-s related-section">
         <h2 class="m-0 card-subtitle">{$t("detail.relatedMoviesHeading")}</h2>
@@ -208,6 +224,7 @@
 </div>
 
 <style>
+  .cast-section,
   .related-section {
     margin-top: var(--space-l);
     padding-top: var(--space-xl);

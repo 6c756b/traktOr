@@ -34,7 +34,7 @@
     <img
       class="login-logo"
       src="{import.meta.env.BASE_URL}{$effectiveTheme === 'dark' ? 'logo-dark.svg' : 'logo.svg'}"
-      alt="TraktOr"
+      alt="[trakt]Or"
     />
     <p class="login-intro">{$t("login.intro")}</p>
     <p class="text-muted text-sm login-tagline">{$t("login.tagline")}</p>

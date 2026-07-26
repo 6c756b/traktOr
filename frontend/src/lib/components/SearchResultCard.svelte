@@ -1,7 +1,6 @@
 <script lang="ts">
   import { addToWatchlist } from "../api/watchlist";
-  import { watchEpisode } from "../api/episodes";
-  import { markMovieWatched } from "../api/library";
+  import { markMovieWatched, addShowToLibrary } from "../api/library";
   import { apiErrorMessage } from "../api/errors";
   import { translateGenre } from "../utils/genres";
   import { language } from "../stores/settings";
@@ -20,6 +19,8 @@
   let watchPending = $state(false);
   let justWatched = $state(false);
   const watched = $derived(result.watched || justWatched);
+  let libraryPending = $state(false);
+  let justAddedToLibrary = $state(false);
 
   async function handleAddToWatchlist() {
     addPending = true;
@@ -34,20 +35,32 @@
     }
   }
 
-  async function handleWatch() {
+  /** Movies: mark watched directly (there's no "episode 1" equivalent). Shows: only add the
+   *  show to the library -- the user can then watch episode 1 (or any episode) from its own
+   *  detail page, same as any other show already in the library. */
+  async function handleMarkMovieWatched() {
     watchPending = true;
     try {
-      if (result.type === "show") {
-        await watchEpisode(result.traktId, 1, 1);
-      } else {
-        await markMovieWatched(result.traktId);
-      }
+      await markMovieWatched(result.traktId);
       justWatched = true;
       toasts.push($t("continueWatching.markWatchedSuccess"), "success");
     } catch (e) {
       toasts.push(apiErrorMessage(e, "detail.markWatchedError", $t), "error");
     } finally {
       watchPending = false;
+    }
+  }
+
+  async function handleAddShowToLibrary() {
+    libraryPending = true;
+    try {
+      await addShowToLibrary(result.traktId);
+      justAddedToLibrary = true;
+      toasts.push($t("search.addToLibrarySuccess"), "success");
+    } catch (e) {
+      toasts.push(apiErrorMessage(e, "search.addToLibraryError", $t), "error");
+    } finally {
+      libraryPending = false;
     }
   }
 </script>
@@ -89,9 +102,19 @@
           {$t("watchlist.add")}
         </button>
       {/if}
-      <button type="button" class="btn btn-primary btn-sm" disabled={watchPending} onclick={handleWatch}>
-        {result.type === "show" ? $t("search.watchEpisodeOne") : $t("detail.markWatched")}
-      </button>
+      {#if result.type === "show"}
+        {#if justAddedToLibrary}
+          <span class="badge">{$t("search.inLibrary")}</span>
+        {:else}
+          <button type="button" class="btn btn-primary btn-sm" disabled={libraryPending} onclick={handleAddShowToLibrary}>
+            {$t("search.addToLibrary")}
+          </button>
+        {/if}
+      {:else}
+        <button type="button" class="btn btn-primary btn-sm" disabled={watchPending} onclick={handleMarkMovieWatched}>
+          {$t("detail.markWatched")}
+        </button>
+      {/if}
     {/if}
   </div>
 </div>

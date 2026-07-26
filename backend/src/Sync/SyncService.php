@@ -469,6 +469,80 @@ final class SyncService
         return $this->mapDiscoverList($this->trakt->get("/movies/{$traktId}/related?limit=10&extended=full"), 'movie');
     }
 
+    /** Cast row for a movie/show detail page. Trakt returns headshots + bios directly (no TMDB
+     *  involved) -- capped at 20 to keep the row a reasonable size on heavily-cast titles.
+     *  @param 'movie'|'show' $type */
+    public function castFor(string $type, int $traktId): array
+    {
+        $path = $type === 'show' ? "/shows/{$traktId}/people?extended=full" : "/movies/{$traktId}/people?extended=full";
+        $cast = array_slice($this->trakt->get($path)['cast'] ?? [], 0, 20);
+
+        return array_map(fn ($c) => [
+            'personId' => $c['person']['ids']['trakt'],
+            'slug' => $c['person']['ids']['slug'],
+            'name' => $c['person']['name'],
+            'character' => implode(', ', $c['characters'] ?? []),
+            'photoUrl' => self::traktImageUrl($c['person']['images']['headshot'][0] ?? null),
+        ], $cast);
+    }
+
+    /** Person bio/photo for the /person/:id page header. */
+    public function personDetail(int $personId): ?array
+    {
+        try {
+            $person = $this->trakt->get("/people/{$personId}?extended=full");
+        } catch (Throwable) {
+            return null;
+        }
+
+        return [
+            'id' => $personId,
+            'slug' => $person['ids']['slug'],
+            'name' => $person['name'],
+            'biography' => $person['biography'] ?? null,
+            'birthday' => $person['birthday'] ?? null,
+            'birthplace' => $person['birthplace'] ?? null,
+            'photoUrl' => self::traktImageUrl($person['images']['headshot'][0] ?? null),
+        ];
+    }
+
+    /** This person's acting filmography, reusing the same SearchResult-card enrichment
+     *  pipeline as searchTrakt()/related*() -- movies and shows merged, newest first. Sorted
+     *  and capped BEFORE the TMDB enrichment pass (not after) -- a prolific actor can have
+     *  hundreds of credits, and mapDiscoverList() fires a batched TMDB request per item, so
+     *  enriching the full list first would make this endpoint take several seconds. */
+    public function personCredits(int $personId): array
+    {
+        $paths = ["/people/{$personId}/movies?extended=full", "/people/{$personId}/shows?extended=full"];
+        $results = $this->trakt->getMany($paths);
+
+        $movieItems = array_map(fn ($r) => $r['movie'], $results[$paths[0]]['cast'] ?? []);
+        $showItems = array_map(fn ($r) => $r['show'], $results[$paths[1]]['cast'] ?? []);
+
+        $items = array_merge(
+            array_map(fn ($i) => $i + ['_type' => 'movie'], $movieItems),
+            array_map(fn ($i) => $i + ['_type' => 'show'], $showItems)
+        );
+        usort($items, fn ($a, $b) => ($b['year'] ?? 0) <=> ($a['year'] ?? 0));
+        $items = array_slice($items, 0, 40);
+
+        $credits = array_merge(
+            $this->mapDiscoverList(array_values(array_filter($items, fn ($i) => $i['_type'] === 'movie')), 'movie'),
+            $this->mapDiscoverList(array_values(array_filter($items, fn ($i) => $i['_type'] === 'show')), 'show')
+        );
+        usort($credits, fn ($a, $b) => ($b['year'] ?? 0) <=> ($a['year'] ?? 0));
+        return $credits;
+    }
+
+    /** Trakt image URLs come back protocol-relative (e.g. "media.trakt.tv/images/..."). */
+    private static function traktImageUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+        return str_starts_with($path, 'http') ? $path : "https://{$path}";
+    }
+
     /** Live, non-persisting show detail for an item not yet in the local library (e.g. a
      *  Recommendations/Trending/Related click) -- same shape as ShowRepository::findOne(),
      *  but nothing is written to the DB. Only an explicit watchlist/watch action persists it
@@ -602,6 +676,14 @@ final class SyncService
     {
         $this->trakt->post('/users/hidden/progress_watched/remove', ['shows' => [['ids' => ['trakt' => $traktShowId]]]]);
         $this->progress->setHidden($traktShowId, false);
+    }
+
+    /** Adds a show to the local library without marking anything watched -- lets the user
+     *  open it from Library/the detail page and watch at their own pace from there, instead
+     *  of forcing episode 1 watched just to get a search/discover result out of preview state. */
+    public function addShowToLibrary(int $traktId): void
+    {
+        $this->syncShow($traktId);
     }
 
     /** Resyncs metadata + progress for a single show, e.g. after a watch mutation. */

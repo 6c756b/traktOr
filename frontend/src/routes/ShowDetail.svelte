@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { fetchShowDetail, hideShow, unhideShow, type ShowListItem } from "../lib/api/library";
+  import { fetchShowDetail, hideShow, unhideShow, addShowToLibrary, type ShowListItem } from "../lib/api/library";
   import { removeFromWatchlist, addToWatchlist } from "../lib/api/watchlist";
-  import { watchEpisode } from "../lib/api/episodes";
   import { fetchRelatedShows, type SearchResult } from "../lib/api/search";
+  import { fetchShowCast, type CastMember } from "../lib/api/people";
   import { apiErrorMessage } from "../lib/api/errors";
   import { formatAirDate, formatRelativeTime } from "../lib/utils/time";
   import { translateGenre } from "../lib/utils/genres";
@@ -11,6 +11,7 @@
   import NoteModal from "../lib/components/NoteModal.svelte";
   import EpisodeList from "../lib/components/EpisodeList.svelte";
   import SearchResultCard from "../lib/components/SearchResultCard.svelte";
+  import CastRow from "../lib/components/CastRow.svelte";
   import StateMessage from "../lib/components/StateMessage.svelte";
   import ConfirmDialog from "../lib/components/ConfirmDialog.svelte";
   import { language } from "../lib/stores/settings";
@@ -26,19 +27,26 @@
   let menuRef: HTMLDivElement | undefined = $state();
   let noteModalOpen = $state(false);
   let removeConfirmOpen = $state(false);
-  let watchFirstEpisodePending = $state(false);
+  let addToLibraryPending = $state(false);
   // "More like this" -- purely supplementary, a failed/empty fetch just leaves it hidden
   // instead of surfacing its own error state.
   let related = $state<SearchResult[] | null>(null);
+  let cast = $state<CastMember[] | null>(null);
 
   async function load(showId: string) {
     show = null;
     error = "";
     related = null;
+    cast = null;
     try {
       show = await fetchShowDetail(Number(showId));
     } catch (e) {
       error = apiErrorMessage(e, "common.loadError", $t);
+    }
+    try {
+      cast = await fetchShowCast(Number(showId));
+    } catch {
+      cast = null;
     }
     try {
       related = await fetchRelatedShows(Number(showId));
@@ -115,18 +123,18 @@
   }
 
   /** Preview shows (not yet in the local library) don't have an episode list to pick from
-   *  yet -- this both persists the show (via the existing markEpisodeWatched()-triggered
-   *  sync) and starts it, then reloads so `inLibrary` flips true and EpisodeList mounts. */
-  async function handleWatchFirstEpisode() {
+   *  yet -- this persists the show without marking anything watched, then reloads so
+   *  `inLibrary` flips true and EpisodeList mounts, letting the user watch from there. */
+  async function handleAddToLibrary() {
     if (!show) return;
-    watchFirstEpisodePending = true;
+    addToLibraryPending = true;
     try {
-      await watchEpisode(show.id, 1, 1);
+      await addShowToLibrary(show.id);
       await load(id);
     } catch (e) {
       toasts.push(apiErrorMessage(e, "common.actionError", $t), "error");
     } finally {
-      watchFirstEpisodePending = false;
+      addToLibraryPending = false;
     }
   }
 
@@ -203,6 +211,16 @@
                 >
                   {$t("notes.menuLabel")}
                 </button>
+                {#if !show.inLibrary}
+                  <button
+                    class="menu-item"
+                    role="menuitem"
+                    disabled={addToLibraryPending}
+                    onclick={() => { menuOpen = false; handleAddToLibrary(); }}
+                  >
+                    {$t("search.addToLibrary")}
+                  </button>
+                {/if}
                 {#if show.progress}
                   <button
                     class="menu-item"
@@ -284,10 +302,10 @@
           <button
             type="button"
             class="btn btn-primary btn-sm preview-hint-action"
-            disabled={watchFirstEpisodePending}
-            onclick={handleWatchFirstEpisode}
+            disabled={addToLibraryPending}
+            onclick={handleAddToLibrary}
           >
-            {$t("search.watchEpisodeOne")}
+            {$t("search.addToLibrary")}
           </button>
           {#if !show.onWatchlist}
             <button
@@ -299,6 +317,13 @@
             </button>
           {/if}
         </div>
+      </div>
+    {/if}
+
+    {#if cast && cast.length > 0}
+      <div class="stack gap-s cast-section">
+        <h2 class="m-0 card-subtitle">{$t("detail.castHeading")}</h2>
+        <CastRow {cast} />
       </div>
     {/if}
 
@@ -350,6 +375,7 @@
     align-self: flex-start;
   }
 
+  .cast-section,
   .related-section {
     margin-top: var(--space-l);
     padding-top: var(--space-xl);
