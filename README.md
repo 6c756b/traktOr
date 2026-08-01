@@ -1,3 +1,23 @@
+> **This repository is archived.**
+>
+> Trakt.tv moved API access behind a paid VIP tier, and this project's own Trakt app
+> registrations (local + production) were lost during a Trakt site migration and couldn't be
+> recovered without paying — so development continued without Trakt instead. The project was
+> renamed **[watch]Bär** and now runs entirely on [TMDB](https://www.themoviedb.org/), and
+> continues at **[6c756b/watch-baer](https://github.com/6c756b/watch-baer)**. This repository
+> is kept for history only and receives no further updates.
+>
+> What's different in the new repo:
+> - No Trakt account or OAuth needed — just a free TMDB API key, no VIP subscription, no
+>   per-account connection limit
+> - Watched status, ratings, watchlist and collection are purely local to your own database
+>   instead of synced to a Trakt account
+> - New features added since: streaming availability ("where to watch" per title), TMDB's own
+>   user rating, keyword tags, and franchise/collection grouping for movies
+> - New name, logo and mascot throughout — the tractor pun stopped making sense once Trakt
+>   ("Trakt" + "Traktor") was gone
+
+
 <div align="center">
   <img src="frontend/public/logo.svg" alt="TraktOr" width="260" />
 
